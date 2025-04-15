@@ -72,7 +72,7 @@ async def handle_image_message(message: types.Message, bot: Bot, state: FSMConte
             logger.info(f"Анализ изображения Gemini для user_id={user_id} завершен.")
         except TelegramBadRequest as e:
             if "can't parse entities" in str(e):
-                logger.warning(f"Ошибка парсинга Markdown (Vision) для user_id={user_id}. Отправка без форматирования. Ошибка: {e}")
+                logger.warning(f"Ошибка парсинга HTML (Vision) для user_id={user_id}. Отправка без форматирования. Ошибка: {e}")
                 try:
                     await thinking_message.edit_text(response_text, parse_mode=None)
                 except Exception as fallback_e:

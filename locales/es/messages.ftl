@@ -9,16 +9,16 @@ language-select-button = Español 🇪🇸
 help-text =
     Puedo responder a tus mensajes de texto y analizar imágenes usando Gemini AI.
 
-    Comandos:
+    <b>Comandos:</b>
     /start - Reiniciar el bot (mostrar saludo)
     /newchat - Iniciar un nuevo diálogo (limpiar historial)
     /model - Seleccionar un modelo de IA para generar texto
     /language - Cambiar el idioma de la interfaz
     /help - Mostrar este mensaje
 
-    Cómo usar:
+    <b>Cómo usar:</b>
     - Simplemente envíame un mensaje de texto.
-    - Envía una imagen. Puedes añadir una descripción a la imagen para hacer una pregunta específica sobre ella (p.ej., "¿Qué hay de inusual en esta foto?"). Si no hay descripción, simplemente la describiré.
+    - Envía una imagen. Puedes añadir una descripción a la imagen para hacer una pregunta específica sobre ella (p.ej., <code>"¿Qué hay de inusual en esta foto?"</code>). Si no hay descripción, simplemente la describiré.
 
 # Procesando mensajes
 thinking = 🧠 Pensando en tu consulta...

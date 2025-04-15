@@ -7,16 +7,16 @@ language-select-button = English 🇬🇧
 help-text =
     I can respond to your text messages and analyze images using Gemini AI.
 
-    Commands:
+    <b>Commands:</b>
     /start - Restart the bot (show the welcome message)
     /newchat - Start a new conversation (clear history)
     /model - Select an AI model for text generation
     /language - Change the interface language
     /help - Show this message
 
-    How to use:
+    <b>How to use:</b>
     - Just send me a text message.
-    - Send an image. You can add a caption to ask a specific question about it (e.g., "What's unusual in this picture?"). If there's no caption, I'll describe it.
+    - Send an image. You can add a caption to ask a specific question about it (e.g., <code>"What's unusual in this picture?"</code>). If there's no caption, I'll describe it.
 
 # Processing messages
 thinking = 🧠 Thinking about your question...

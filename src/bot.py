@@ -51,7 +51,7 @@ async def main():
 
     bot = Bot(
         token=config.bot.token,
-        default=DefaultBotProperties(parse_mode="Markdown"))
+        default=DefaultBotProperties(parse_mode="HTML"))
     # Используйте RedisStorage или другое персистентное хранилище для продакшена,
     # чтобы выбор языка сохранялся между перезапусками!
     storage = MemoryStorage()

@@ -86,7 +86,7 @@ async def handle_text_message(message: types.Message, state: FSMContext, bot: Bo
         await thinking_message.edit_text(final_response)
     except TelegramBadRequest as e:
         if "can't parse entities" in str(e):
-            logger.warning(f"Ошибка парсинга Markdown ({selected_model}) для user_id={user_id}. Отправка plain text.")
+            logger.warning(f"Ошибка парсинга HTML ({selected_model}) для user_id={user_id}. Отправка plain text.")
             try:
                 await thinking_message.edit_text(final_response, parse_mode=None)
             except Exception as fallback_e:
