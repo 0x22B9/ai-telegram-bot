@@ -4,7 +4,7 @@ import logging
 # Добавляем импорт DefaultBotProperties
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties # <<< ДОБАВИТЬ ЭТОТ ИМПОРТ
-from aiogram.fsm.storage.memory import MemoryStorage # Или другое хранилище
+from aiogram.fsm.storage.mongo import MongoStorage
 
 from src.config import config, load_config
 from src.handlers import common_router, text_router, image_router
@@ -54,7 +54,16 @@ async def main():
         default=DefaultBotProperties(parse_mode="HTML"))
     # Используйте RedisStorage или другое персистентное хранилище для продакшена,
     # чтобы выбор языка сохранялся между перезапусками!
-    storage = MemoryStorage()
+    try:
+        storage = MongoStorage.from_url(
+            url=config.mongo.uri
+            # collection="aiogram_fsm_states" # Можно указать имя коллекции, если нужно
+        )
+        logger.info(f"Используется MongoStorage для FSM (БД из URI: {config.mongo.uri.split('/')[-1].split('?')[0]})") # Логируем предполагаемую БД из URI
+    except Exception as e:
+        logger.critical(f"Не удалось инициализировать MongoStorage из URI: {e}", exc_info=True)
+        logger.critical("Убедитесь, что имя базы данных указано в MONGO_URI в .env файле (например, ...mongodb.net/имя_базы?...)")
+        return # Не запускаем бота без хранилища FSM
     dp = Dispatcher(storage=storage)
 
     # --- Регистрация обработчиков жизненного цикла ---
