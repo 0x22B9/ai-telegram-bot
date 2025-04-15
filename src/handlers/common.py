@@ -10,13 +10,9 @@ from src.localization import SUPPORTED_LOCALES, get_localizer, LOCALIZATIONS
 # Создаем роутер для общих команд
 common_router = Router()
 
-@common_router.message(CommandStart())
-async def handle_start(message: types.Message, state: FSMContext, localizer: FluentLocalization):
-    """
-    Обработчик команды /start. Предлагает выбрать язык.
-    """
-    await state.clear()
-
+# Вспомогательная функция для отправки сообщения с выбором языка
+async def send_language_selection_message(message: types.Message, localizer: FluentLocalization):
+    """Отправляет сообщение с кнопками выбора языка."""
     builder = InlineKeyboardBuilder()
     for lang_code in SUPPORTED_LOCALES:
         lang_localizer = LOCALIZATIONS[lang_code]
@@ -24,31 +20,57 @@ async def handle_start(message: types.Message, state: FSMContext, localizer: Flu
         builder.button(text=button_text, callback_data=f"lang_select:{lang_code}")
     builder.adjust(1)
 
-    prompt_text = localizer.format_value('start-prompt')
+    prompt_text = localizer.format_value('start-prompt') # Используем 'start-prompt' для универсальности
     await message.answer(
         prompt_text,
         reply_markup=builder.as_markup()
     )
 
+@common_router.message(CommandStart())
+async def handle_start(message: types.Message, state: FSMContext, localizer: FluentLocalization):
+    """
+    Обработчик команды /start.
+    Проверяет, выбран ли язык. Если нет - предлагает выбор. Если да - приветствует.
+    """
+    user_data = await state.get_data()
+    current_lang_code = user_data.get("language_code")
+    user_name = message.from_user.full_name
+
+    if current_lang_code and current_lang_code in SUPPORTED_LOCALES:
+        # Язык уже выбран, просто приветствуем на выбранном языке
+        # localizer уже будет правильным благодаря middleware
+        welcome_message = localizer.format_value('start-welcome', args={"user_name": user_name})
+        await message.answer(welcome_message)
+    else:
+        # Язык не выбран или некорректен, предлагаем выбрать
+        await state.clear() # Очищаем состояние перед выбором языка
+        # localizer здесь будет дефолтным или тем, что определился до state
+        await send_language_selection_message(message, get_localizer()) # Отправляем с дефолтным локализатором
+
+# --- Language Command ---
+@common_router.message(Command("language"))
+async def handle_language_command(message: types.Message, localizer: FluentLocalization):
+    """
+    Обработчик команды /language. Всегда предлагает сменить язык.
+    """
+    # localizer будет текущим языком пользователя, используем его для промпта
+    await send_language_selection_message(message, localizer)
+
 # --- Language Selection Callback ---
-# ИСПОЛЬЗУЕМ ФИЛЬТР ПРЯМО В ДЕКОРАТОРЕ:
 @common_router.callback_query(F.data.startswith("lang_select:"))
 async def handle_language_selection(callback_query: types.CallbackQuery, state: FSMContext):
     """
-    Обрабатывает выбор языка из inline-кнопки.
+    Обрабатывает выбор языка из inline-кнопки (от /start или /language).
     """
-    # Убедимся, что работаем именно с CallbackQuery (хотя декоратор это уже гарантирует)
-    if not isinstance(callback_query, types.CallbackQuery):
-        return # На всякий случай
+    if not isinstance(callback_query, types.CallbackQuery) or not callback_query.data:
+        return
 
-    await callback_query.answer()
+    await callback_query.answer() # Убираем часики
 
     try:
-        # callback_query.data гарантированно будет строкой, начинающейся с "lang_select:"
         lang_code = callback_query.data.split(":")[1]
-    except (IndexError, AttributeError):
-        # Если data некорректный, логируем и выходим
-        logging.warning(f"Некорректный callback_data получен: {callback_query.data}")
+    except IndexError:
+        logging.warning(f"Некорректный callback_data 'lang_select': {callback_query.data}")
         return
 
     user_id = callback_query.from_user.id
@@ -56,26 +78,31 @@ async def handle_language_selection(callback_query: types.CallbackQuery, state: 
 
     if lang_code not in SUPPORTED_LOCALES:
         logging.warning(f"Получен неподдерживаемый код языка: {lang_code} от user_id={user_id}")
-        # Можно отправить сообщение об ошибке пользователю, если нужно
         return
 
+    # Сохраняем выбранный язык в FSM storage
     await state.update_data(language_code=lang_code)
+    logging.info(f"User {user_id} chose language: {lang_code}") # Логируем смену языка
+
+    # Получаем локализатор для ВЫБРАННОГО языка
     new_localizer = get_localizer(lang_code)
+
+    # Формируем сообщение о смене языка на выбранном языке
     welcome_message = new_localizer.format_value('language-chosen', args={"user_name": user_name})
 
+    # Редактируем исходное сообщение (с кнопками выбора языка)
     try:
-        # Редактируем сообщение, если оно существует
         if callback_query.message:
-             await callback_query.message.edit_text(
-                 welcome_message,
-                 reply_markup=None
-             )
+            await callback_query.message.edit_text(
+                welcome_message,
+                reply_markup=None # Убираем клавиатуру
+            )
         else:
-             # Если исходного сообщения нет (редко, но возможно), отправляем новое
-             await callback_query.bot.send_message(chat_id=user_id, text=welcome_message)
+            # Если исходного сообщения нет, отправляем новое
+            await callback_query.bot.send_message(chat_id=user_id, text=welcome_message)
     except Exception as e:
         logging.error(f"Ошибка при редактировании/отправке сообщения о выборе языка для user_id={user_id}: {e}")
-        # Попытка отправить новое сообщение как фоллбэк
+        # Фоллбэк: отправить новое сообщение, если редактирование не удалось
         try:
             await callback_query.bot.send_message(chat_id=user_id, text=welcome_message)
         except Exception as final_e:
@@ -87,5 +114,6 @@ async def handle_help(message: types.Message, localizer: FluentLocalization):
     """
     Обработчик команды /help. Использует локализатор из middleware.
     """
+    # Убедимся, что добавили /language в текст помощи в .ftl файлах
     help_text = localizer.format_value('help-text')
-    await message.answer(help_text) # parse_mode уже установлен в боте
+    await message.answer(help_text)

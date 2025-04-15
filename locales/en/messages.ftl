@@ -7,11 +7,12 @@ language-select-button = English 🇬🇧
 help-text =
     I can respond to your text messages and analyze images using Gemini AI.
 
-    **Commands:**
-    /start - Restart the bot and choose language
+    Commands:
+    /start - Restart the bot (show the welcome message)
+    /language - Change the interface language
     /help - Show this message
 
-    **How to use:**
+    How to use:
     - Just send me a text message.
     - Send an image. You can add a caption to ask a specific question about it (e.g., "What's unusual in this picture?"). If there's no caption, I'll describe it.
 

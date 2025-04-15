@@ -6,7 +6,7 @@ from fluent.runtime import FluentLocalization, FluentResourceLoader
 # Путь к папке с локалями относительно корня проекта
 LOCALES_DIR = Path(__file__).parent.parent / "locales"
 DEFAULT_LOCALE = "en" # Язык по умолчанию, если не выбран
-SUPPORTED_LOCALES = ["en", "kk", "ru"] # Поддерживаемые языки
+SUPPORTED_LOCALES = ["en", "kk", "uk", "zh", "es", "ru"] # Поддерживаемые языки
 
 # Загрузчик ресурсов Fluent
 loader = FluentResourceLoader(str(LOCALES_DIR / "{locale}"))
@@ -20,7 +20,10 @@ LOCALIZATIONS: Dict[str, FluentLocalization] = {
 
 def get_localizer(locale: str | None = None) -> FluentLocalization:
     """Возвращает объект локализации для указанного или дефолтного языка."""
-    return LOCALIZATIONS.get(locale or DEFAULT_LOCALE, LOCALIZATIONS[DEFAULT_LOCALE])
+    # Проверяем, есть ли запрошенный язык в наших локализациях
+    # Если нет, или если locale is None, используем DEFAULT_LOCALE
+    effective_locale = locale if locale in LOCALIZATIONS else DEFAULT_LOCALE
+    return LOCALIZATIONS.get(effective_locale, LOCALIZATIONS[DEFAULT_LOCALE])
 
 def get_i18n_args(
     user_locale: str | None = None,
@@ -31,13 +34,5 @@ def get_i18n_args(
     """
     actual_locale = user_locale if user_locale in SUPPORTED_LOCALES else default_locale
     localizer = get_localizer(actual_locale)
-    return localizer, actual_locale
-
-# Функция для быстрого форматирования (опционально, но удобно)
-# def _(key: str, locale: str | None = None, **kwargs) -> str:
-#    """Простой хелпер для получения локализованной строки."""
-#    localizer = get_localizer(locale)
-#    return localizer.format_value(key, args=kwargs)
-
-# Пример использования хелпера:
-# welcome_message = _("start-welcome", locale=user_lang, user_name="John")
+    final_lang_code = localizer.locales[0] if localizer.locales else default_locale
+    return localizer, final_lang_code
