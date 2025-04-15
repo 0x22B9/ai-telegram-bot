@@ -1,65 +1,62 @@
 import asyncio
 import logging
 
+# Добавляем импорт DefaultBotProperties
 from aiogram import Bot, Dispatcher
-from aiogram.fsm.storage.memory import MemoryStorage # Простое хранилище состояний в памяти
-from aiogram.client.default import DefaultBotProperties
+from aiogram.client.default import DefaultBotProperties # <<< ДОБАВИТЬ ЭТОТ ИМПОРТ
+from aiogram.fsm.storage.memory import MemoryStorage # Или другое хранилище
 
-# Импортируем конфигурацию (убедитесь, что она загружена в config.py)
-from src.config import load_config
+from src.config import config, load_config
+from src.handlers import common_router, text_router, image_router
+from src.middlewares import LanguageMiddleware
 
-# Импортируем роутеры из handlers
-from src.handlers import common, text, image
-
-# Настройка логгирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )
 logger = logging.getLogger(__name__)
 
-
 async def main():
-    """
-    Главная асинхронная функция для запуска бота.
-    """
-    # Загружаем конфигурацию (если не загрузилась при импорте)
-    # Можно убрать эту строку, если уверены, что config.py всегда отработает при импорте
     loaded_config = load_config()
 
     if not loaded_config or not loaded_config.bot.token or not loaded_config.gemini.api_key:
-        logger.critical("Не удалось загрузить конфигурацию. Проверьте .env файл и переменные окружения.")
-        return # Прерываем выполнение, если конфиг не загружен
+        logger.critical("Не удалось загрузить конфигурацию. Проверьте .env файл.")
+        return
 
-    # Инициализация бота и диспетчера
     bot = Bot(
-    token=loaded_config.bot.token,
-    default=DefaultBotProperties(parse_mode="Markdown"))
-    storage = MemoryStorage() # Вы можете заменить на RedisStorage или другое для продакшена
+        token=loaded_config.bot.token,
+        default=DefaultBotProperties(parse_mode="Markdown"))
+    # Используйте RedisStorage или другое персистентное хранилище для продакшена,
+    # чтобы выбор языка сохранялся между перезапусками!
+    storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
 
-    # Подключение роутеров
+    # --- Регистрация Middleware ---
+    # Важно: регистрируем ДО роутеров, чтобы localizer был доступен везде
+    dp.update.outer_middleware(LanguageMiddleware())
+    logger.info("Middleware языка зарегистрирован.")
+
+    # --- Подключение роутеров ---
     logger.info("Подключение роутеров...")
-    dp.include_router(common.common_router)
-    dp.include_router(text.text_router)
-    dp.include_router(image.image_router)
-    # Добавьте другие роутеры здесь, если они появятся
+    # Порядок важен, если есть пересекающиеся фильтры, но здесь не критично
+    dp.include_router(common_router) # Обработчики /start, /help, колбэки
+    dp.include_router(text_router)   # Обработчик текста
+    dp.include_router(image_router)  # Обработчик изображений
     logger.info("Роутеры подключены.")
 
-    # Удаление вебхука перед запуском polling (на всякий случай)
     await bot.delete_webhook(drop_pending_updates=True)
-    logger.info("Вебхук удален (если был).")
+    logger.info("Вебхук удален.")
 
-    # Запуск polling
     logger.info("Запуск бота (polling)...")
     try:
         await dp.start_polling(bot)
     except Exception as e:
         logger.critical(f"Критическая ошибка при запуске бота: {e}", exc_info=True)
     finally:
-        await bot.session.close()
-        logger.info("Сессия бота закрыта.")
-
+        # Закрытие сессии бота теперь не рекомендуется делать явно здесь,
+        # так как Dispatcher управляет жизненным циклом бота при polling.
+        # await bot.session.close() # <<< ЭТУ СТРОКУ МОЖНО УДАЛИТЬ ИЛИ ЗАКОММЕНТИРОВАТЬ
+        logger.info("Завершение работы бота.")
 
 if __name__ == '__main__':
     try:
