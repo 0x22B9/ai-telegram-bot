@@ -1,6 +1,6 @@
 # Command descriptions and common phrases
 start-prompt = Choose your preferred language:
-start-welcome = Hello, { $user_name }! I'm an AI bot powered by Gemini. Send me text or an image (with or without a caption), and I'll try to respond. Use /help to see commands.
+start-welcome = Hello, { $user_name }! I'm an AI-based bot. Send me text or an image (with or without a caption), and I'll do my best to respond. Use /help to view commands.
 language-chosen = Language set to English. { start-welcome }
 language-select-button = English 🇬🇧
 
@@ -9,6 +9,7 @@ help-text =
 
     Commands:
     /start - Restart the bot (show the welcome message)
+    /newchat - Start a new conversation (clear history)
     /language - Change the interface language
     /help - Show this message
 
@@ -20,6 +21,9 @@ help-text =
 thinking = 🧠 Thinking about your question...
 analyzing = 🖼️ Analyzing the image...
 
+# Creating a new chat
+newchat-started = ✨ Alright, let's start a new conversation! I've forgotten the previous context.
+
 # Error messages
 error-gemini-fetch = 😔 Failed to get a response from Gemini. Please try again later.
 error-image-download = 😔 Failed to load your image. Please try again.
@@ -29,5 +33,5 @@ error-general = 😔 An unexpected error occurred. Please try again later.
 error-blocked-content = My response was blocked due to safety restrictions (Reason: { $reason }). Please try rephrasing your request.
 error-blocked-image-content = My response to the image was blocked due to safety restrictions (Reason: { $reason }).
 error-gemini-api-key = Error: Gemini API key is not configured.
-error-gemini-request = An error occurred while contacting Gemini: { $error }
-error-image-analysis-request = An error occurred while analyzing the image: { $error }
+error-gemini-request = An error occurred while contacting Gemini: Contact the administrator!
+error-image-analysis-request = An error occurred while analyzing the image: Contact the administrator!

@@ -6,9 +6,10 @@ from fluent.runtime import FluentLocalization
 import logging
 
 from src.localization import SUPPORTED_LOCALES, get_localizer, LOCALIZATIONS
-
+from src.db import clear_history
 # Создаем роутер для общих команд
 common_router = Router()
+logger = logging.getLogger(__name__)
 
 # Вспомогательная функция для отправки сообщения с выбором языка
 async def send_language_selection_message(message: types.Message, localizer: FluentLocalization):
@@ -107,6 +108,24 @@ async def handle_language_selection(callback_query: types.CallbackQuery, state: 
             await callback_query.bot.send_message(chat_id=user_id, text=welcome_message)
         except Exception as final_e:
             logging.error(f"Не удалось даже отправить новое сообщение о выборе языка для user_id={user_id}: {final_e}")
+
+# --- New Chat Command --- Добавлено ---
+@common_router.message(Command("newchat"))
+async def handle_new_chat(message: types.Message, localizer: FluentLocalization):
+    """
+    Обработчик команды /newchat. Очищает историю чата пользователя.
+    """
+    user_id = message.from_user.id
+    success = await clear_history(user_id)
+
+    if success:
+        response_text = localizer.format_value("newchat-started")
+        logger.info(f"Пользователь {user_id} начал новый чат.")
+    else:
+        response_text = localizer.format_value("error-general") # Общая ошибка, если очистка не удалась
+        logger.error(f"Не удалось очистить историю для пользователя {user_id}.")
+
+    await message.answer(response_text)
 
 # --- Help Command ---
 @common_router.message(Command("help"))

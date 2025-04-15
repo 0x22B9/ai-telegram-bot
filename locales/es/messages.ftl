@@ -2,7 +2,7 @@
 
 # Descripciones de comandos y frases comunes
 start-prompt = Elige tu idioma preferido:
-start-welcome = ¡Hola, { $user_name }! Soy un bot de IA impulsado por Gemini. Envíame texto o una imagen (con o sin descripción), e intentaré responder. Usa /help para ver los comandos.
+¡Hola, { $user_name }! Soy un bot basado en IA. Envíame texto o una imagen (con o sin descripción), y haré lo mejor para responder. Usa /help para ver los comandos.
 language-chosen = Idioma establecido a Español. { start-welcome }
 language-select-button = Español 🇪🇸
 
@@ -11,6 +11,7 @@ help-text =
 
     Comandos:
     /start - Reiniciar el bot (mostrar saludo)
+    /newchat - Iniciar un nuevo diálogo (limpiar historial)
     /language - Cambiar el idioma de la interfaz
     /help - Mostrar este mensaje
 
@@ -22,6 +23,9 @@ help-text =
 thinking = 🧠 Pensando en tu consulta...
 analyzing = 🖼️ Analizando la imagen...
 
+# Creación de un nuevo chat
+newchat-started = ✨ ¡Bien, empecemos un nuevo diálogo! He olvidado el contexto anterior.
+
 # Mensajes de error
 error-gemini-fetch = 😔 No se pudo obtener una respuesta de Gemini. Por favor, inténtalo más tarde.
 error-image-download = 😔 No se pudo cargar tu imagen. Por favor, inténtalo de nuevo.
@@ -31,5 +35,5 @@ error-general = 😔 Ocurrió un error inesperado. Por favor, inténtalo más ta
 error-blocked-content = Mi respuesta fue bloqueada debido a restricciones de seguridad (Motivo: { $reason }). Por favor, intenta reformular tu solicitud.
 error-blocked-image-content = Mi respuesta a la imagen fue bloqueada debido a restricciones de seguridad (Motivo: { $reason }).
 error-gemini-api-key = Error: La clave API de Gemini no está configurada.
-error-gemini-request = Ocurrió un error al contactar con Gemini: { $error }
-error-image-analysis-request = Ocurrió un error al analizar la imagen: { $error }
+error-gemini-request = Ocurrió un error al contactar con Gemini: ¡Póngase en contacto con el administrador!
+error-image-analysis-request = Ocurrió un error al analizar la imagen: ¡Póngase en contacto con el administrador!
