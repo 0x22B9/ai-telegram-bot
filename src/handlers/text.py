@@ -10,6 +10,7 @@ from src.db import get_history, save_history # Импортируем функц
 from src.services.gemini import ( # Импортируем константы ошибок
     GEMINI_API_KEY_ERROR, GEMINI_BLOCKED_ERROR, GEMINI_REQUEST_ERROR
 )
+from src.config import DEFAULT_TEXT_MODEL
 
 # Настройка логгирования
 logger = logging.getLogger(__name__)
@@ -35,21 +36,29 @@ async def handle_text_message(message: types.Message, state: FSMContext, bot: Bo
     current_history = await get_history(user_id)
     logger.debug(f"Загружена история для user_id={user_id}, сообщений: {len(current_history)}")
 
+    user_data = await state.get_data()
+    selected_model = user_data.get("selected_model", DEFAULT_TEXT_MODEL) # Используем дефолт, если не выбрана
+    logger.debug(f"Выбранная модель для user_id={user_id}: {selected_model}")
+
     # 2. Вызвать Gemini с историей и новым сообщением
-    response_text, error_code = await gemini.generate_text_with_history(current_history, user_text)
+    response_text, error_code = await gemini.generate_text_with_history(
+        history=current_history,
+        new_prompt=user_text,
+        model_name=selected_model # <<< Передаем модель
+    )
 
     # 3. Обработать ответ или ошибку
     final_response = ""
     save_needed = False # Флаг, нужно ли сохранять историю
+    updated_history = current_history
 
     if response_text and not error_code:
         final_response = response_text
-        # 4. Сформировать новую историю для сохранения
         user_message_for_history = create_gemini_message("user", user_text)
         model_message_for_history = create_gemini_message("model", response_text)
         updated_history = current_history + [user_message_for_history, model_message_for_history]
         save_needed = True
-        logger.info(f"Gemini ответил для user_id={user_id}. Новая длина истории: {len(updated_history)}")
+        logger.info(f"Gemini ({selected_model}) ответил user_id={user_id}. Новая длина истории: {len(updated_history)}")
 
     elif error_code:
         # Обработка кодов ошибок Gemini
@@ -58,45 +67,43 @@ async def handle_text_message(message: types.Message, state: FSMContext, bot: Bo
         elif error_code.startswith(GEMINI_BLOCKED_ERROR):
             reason = error_code.split(":", 1)[1] if ":" in error_code else "Неизвестно"
             final_response = localizer.format_value('error-blocked-content', args={'reason': reason})
-            # Не сохраняем историю, если ответ заблокирован, но сохраняем сообщение пользователя
             user_message_for_history = create_gemini_message("user", user_text)
-            updated_history = current_history + [user_message_for_history]
+            updated_history = current_history + [user_message_for_history] # Сохраняем только сообщение юзера
             save_needed = True
         elif error_code.startswith(GEMINI_REQUEST_ERROR):
             error_detail = error_code.split(":", 1)[1] if ":" in error_code else "Неизвестная ошибка"
             final_response = localizer.format_value('error-gemini-request', args={'error': error_detail})
-            # Историю не сохраняем при ошибке запроса
-        else: # Неизвестный код ошибки
+            save_needed = False # Не сохраняем при ошибке запроса
+        else:
             final_response = localizer.format_value('error-general')
-        logger.warning(f"Ошибка Gemini для user_id={user_id}: {error_code}")
+        logger.warning(f"Ошибка Gemini ({selected_model}) для user_id={user_id}: {error_code}")
     else:
-        # Неожиданный случай: нет ни ответа, ни ошибки
         final_response = localizer.format_value('error-gemini-fetch')
-        logger.error(f"Неожиданный результат от Gemini для user_id={user_id}: нет ни текста, ни ошибки.")
+        logger.error(f"Неожиданный результат от Gemini ({selected_model}) для user_id={user_id}: нет ни текста, ни ошибки.")
 
     # 5. Отправить ответ пользователю (с обработкой ошибок парсинга)
     try:
         await thinking_message.edit_text(final_response)
     except TelegramBadRequest as e:
         if "can't parse entities" in str(e):
-            logger.warning(f"Ошибка парсинга Markdown для user_id={user_id}. Отправка без форматирования.")
+            logger.warning(f"Ошибка парсинга Markdown ({selected_model}) для user_id={user_id}. Отправка plain text.")
             try:
                 await thinking_message.edit_text(final_response, parse_mode=None)
             except Exception as fallback_e:
-                logger.error(f"Не удалось отправить ответ Gemini даже без форматирования для user_id={user_id}: {fallback_e}", exc_info=True)
+                logger.error(f"Не удалось отправить ответ ({selected_model}) plain text для user_id={user_id}: {fallback_e}", exc_info=True)
                 error_msg = localizer.format_value('error-display')
                 await thinking_message.edit_text(error_msg)
-                save_needed = False # Не сохраняем историю, если даже отправить не смогли
+                save_needed = False
         else:
-            logger.error(f"Неожиданная ошибка TelegramBadRequest для user_id={user_id}: {e}", exc_info=True)
+            logger.error(f"Неожиданная ошибка TelegramBadRequest ({selected_model}) для user_id={user_id}: {e}", exc_info=True)
             error_msg = localizer.format_value('error-general')
             await thinking_message.edit_text(error_msg)
-            save_needed = False # Не сохраняем историю при других ошибках отправки
+            save_needed = False
     except Exception as e:
-        logger.error(f"Общая ошибка при редактировании сообщения для user_id={user_id}: {e}", exc_info=True)
+        logger.error(f"Общая ошибка при редактировании сообщения ({selected_model}) для user_id={user_id}: {e}", exc_info=True)
         error_msg = localizer.format_value('error-general')
         await thinking_message.edit_text(error_msg)
-        save_needed = False # Не сохраняем историю при других ошибках отправки
+        save_needed = False
 
     # 6. Сохранить обновленную историю в БД (если нужно)
     if save_needed:

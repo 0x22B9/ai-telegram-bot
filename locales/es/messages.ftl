@@ -2,7 +2,7 @@
 
 # Descripciones de comandos y frases comunes
 start-prompt = Elige tu idioma preferido:
-¡Hola, { $user_name }! Soy un bot basado en IA. Envíame texto o una imagen (con o sin descripción), y haré lo mejor para responder. Usa /help para ver los comandos.
+start-welcome = ¡Hola, { $user_name }! Soy un bot basado en IA. Envíame texto o una imagen (con o sin descripción), y haré lo mejor para responder. Usa /help para ver los comandos.
 language-chosen = Idioma establecido a Español. { start-welcome }
 language-select-button = Español 🇪🇸
 
@@ -12,6 +12,7 @@ help-text =
     Comandos:
     /start - Reiniciar el bot (mostrar saludo)
     /newchat - Iniciar un nuevo diálogo (limpiar historial)
+    /model - Seleccionar un modelo de IA para generar texto
     /language - Cambiar el idioma de la interfaz
     /help - Mostrar este mensaje
 
@@ -22,6 +23,10 @@ help-text =
 # Procesando mensajes
 thinking = 🧠 Pensando en tu consulta...
 analyzing = 🖼️ Analizando la imagen...
+
+# Modelos de IA
+model-prompt = Selecciona un modelo de IA para generar texto:
+model-chosen = El modelo de IA se ha establecido en: { $model_name }
 
 # Creación de un nuevo chat
 newchat-started = ✨ ¡Bien, empecemos un nuevo diálogo! He olvidado el contexto anterior.

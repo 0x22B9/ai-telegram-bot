@@ -2,6 +2,15 @@ import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
+# --- Добавлено: Настройки моделей Gemini ---
+# Используйте официальные идентификаторы моделей из документации Google AI
+AVAILABLE_TEXT_MODELS = ["gemini-2.0-flash", "gemini-2.5-pro-exp-03-25"]
+# Модель по умолчанию (Flash часто быстрее и дешевле для чата)
+DEFAULT_TEXT_MODEL = "gemini-2.0-flash"
+# Модель для анализа изображений (обычно отдельная)
+VISION_MODEL = "gemini-2.0-flash" # Или более новая, если появится совместимая
+# ------------------------------------------
+
 @dataclass
 class BotConfig:
     token: str

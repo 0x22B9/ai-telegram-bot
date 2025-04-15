@@ -10,6 +10,7 @@ help-text =
     Commands:
     /start - Restart the bot (show the welcome message)
     /newchat - Start a new conversation (clear history)
+    /model - Select an AI model for text generation
     /language - Change the interface language
     /help - Show this message
 
@@ -20,6 +21,10 @@ help-text =
 # Processing messages
 thinking = 🧠 Thinking about your question...
 analyzing = 🖼️ Analyzing the image...
+
+# AI Models
+model-prompt = Select an AI model for text generation:
+model-chosen = AI model set to: { $model_name }
 
 # Creating a new chat
 newchat-started = ✨ Alright, let's start a new conversation! I've forgotten the previous context.

@@ -1,11 +1,11 @@
 import logging
 import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold, ContentDict, PartDict
+from google.generativeai.types import HarmCategory, HarmBlockThreshold, ContentDict
 import PIL.Image
 import io
 from typing import List, Dict, Any # Добавлено для типизации
 
-from src.config import config
+from src.config import config, VISION_MODEL, DEFAULT_TEXT_MODEL
 
 # Настройка логгирования
 logger = logging.getLogger(__name__)
@@ -33,17 +33,23 @@ GEMINI_BLOCKED_ERROR = "GEMINI_BLOCKED_ERROR"
 GEMINI_REQUEST_ERROR = "GEMINI_REQUEST_ERROR"
 IMAGE_ANALYSIS_ERROR = "IMAGE_ANALYSIS_ERROR"
 
-async def generate_text_with_history(history: List[Dict[str, Any]], new_prompt: str) -> tuple[str | None, str | None]:
+async def generate_text_with_history(
+    history: List[Dict[str, Any]],
+    new_prompt: str,
+    model_name: str = DEFAULT_TEXT_MODEL # Используем дефолтную модель, если не передана
+) -> tuple[str | None, str | None]:
     """
-    Генерирует текст с использованием модели Gemini Pro, учитывая историю чата.
-    Возвращает кортеж: (сгенерированный_текст | None, код_ошибки | None).
+    Генерирует текст с использованием указанной модели Gemini, учитывая историю.
     """
     if not (config and config.gemini.api_key):
         logger.error("Gemini API не сконфигурирован.")
         return None, GEMINI_API_KEY_ERROR
 
     try:
-        model = genai.GenerativeModel('gemini-2.5-pro-exp-03-25')
+        # --- Используем переданное имя модели ---
+        logger.debug(f"Использование модели Gemini: {model_name}")
+        model = genai.GenerativeModel(model_name)
+        # ---------------------------------------
 
         # Важно: Конвертируем наш формат истории в формат, ожидаемый библиотекой google-generativeai
         # Наш формат: [{"role": "user", "parts": [{"text": "..."}]}, ...]
@@ -72,8 +78,9 @@ async def generate_text_with_history(history: List[Dict[str, Any]], new_prompt: 
         return response.text, None # Успех, возвращаем текст и None для ошибки
 
     except Exception as e:
-        logger.error(f"Ошибка при генерации текста Gemini (с историей): {e}", exc_info=True)
-        return None, f"{GEMINI_REQUEST_ERROR}:{e}" # Передаем текст ошибки
+        logger.error(f"Ошибка при генерации текста Gemini ({model_name}): {e}", exc_info=True)
+        # Сообщаем общую ошибку, чтобы не раскрывать детали модели пользователю напрямую
+        return None, f"{GEMINI_REQUEST_ERROR}:{e}"
 
 async def analyze_image(image_bytes: bytes, prompt: str) -> str | None:
     """
@@ -86,18 +93,16 @@ async def analyze_image(image_bytes: bytes, prompt: str) -> str | None:
 
     try:
         img = PIL.Image.open(io.BytesIO(image_bytes))
-        model = genai.GenerativeModel('gemini-2.5-pro-exp-03-25')
+        model = genai.GenerativeModel(VISION_MODEL)
         response = await model.generate_content_async([prompt, img], safety_settings=safety_settings)
 
         if not response.parts:
              block_reason = response.prompt_feedback.block_reason.name if response.prompt_feedback else "Неизвестно"
-             logger.warning(f"Ответ от Gemini (Vision) заблокирован. Причина: {block_reason}")
-             # Возвращаем строку для проверки
-             return f"Мой ответ на изображение был заблокирован из-за ограничений безопасности (Причина: {block_reason})."
+             logger.warning(f"Ответ от Gemini ({VISION_MODEL}) заблокирован. Причина: {block_reason}")
+             return None, f"{GEMINI_BLOCKED_ERROR}:{block_reason}"
 
         return response.text
 
     except Exception as e:
-        logger.error(f"Ошибка при анализе изображения Gemini: {e}", exc_info=True)
-        # Возвращаем строку для проверки
-        return f"Произошла ошибка при анализе изображения: {e}"
+        logger.error(f"Ошибка при анализе изображения Gemini ({VISION_MODEL}): {e}", exc_info=True)
+        return None, f"{IMAGE_ANALYSIS_ERROR}:{e}"

@@ -12,6 +12,7 @@ help-text =
     命令:
     /start - 重新启动机器人（显示欢迎信息）
     /newchat - 开始新对话（清除历史记录）
+    /model - 选择用于生成文本的人工智能模型
     /language - 更改界面语言
     /help - 显示此消息
 
@@ -22,6 +23,10 @@ help-text =
 # 处理消息
 thinking = 🧠 正在思考您的问题...
 analyzing = 🖼️ 正在分析图片...
+
+# 人工智能模型
+model-prompt = 选择用于生成文本的人工智能模型：
+model-chosen = 人工智能模型已设置为：{ $model_name }
 
 # 创建新聊天
 newchat-started = ✨ 好的，我们开始一个新对话！我已经忘记了之前的上下文。
