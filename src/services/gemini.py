@@ -1,6 +1,7 @@
 import logging
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold, ContentDict
+from google.api_core import exceptions as api_core_exceptions
 import PIL.Image
 import io
 from typing import List, Dict, Any # Добавлено для типизации
@@ -28,6 +29,7 @@ safety_settings = {
     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
 }
 
+GEMINI_QUOTA_ERROR = "GEMINI_QUOTA_ERROR"
 GEMINI_API_KEY_ERROR = "GEMINI_API_KEY_ERROR"
 GEMINI_BLOCKED_ERROR = "GEMINI_BLOCKED_ERROR"
 GEMINI_REQUEST_ERROR = "GEMINI_REQUEST_ERROR"
@@ -77,10 +79,19 @@ async def generate_text_with_history(
 
         return response.text, None # Успех, возвращаем текст и None для ошибки
 
-    except Exception as e:
-        logger.error(f"Ошибка при генерации текста Gemini ({model_name}): {e}", exc_info=True)
-        # Сообщаем общую ошибку, чтобы не раскрывать детали модели пользователю напрямую
-        return None, f"{GEMINI_REQUEST_ERROR}:{e}"
+    except api_core_exceptions.ResourceExhausted as e: # Ловим ошибку 429 (квота)
+        logger.error(f"Ошибка квоты Gemini ({model_name}): {e}", exc_info=False) # Полный трейсбек не нужен
+        return None, GEMINI_QUOTA_ERROR # Возвращаем новый код ошибки
+    except Exception as e: # Ловим остальные ошибки
+        # Добавим проверку, содержит ли текст ошибки '429' на всякий случай,
+        # если исключение было другим, но содержало этот код.
+        if "429" in str(e) and "quota" in str(e).lower():
+             logger.error(f"Обнаружена ошибка, похожая на квоту, в общем Exception ({model_name}): {e}", exc_info=False)
+             return None, GEMINI_QUOTA_ERROR
+        else:
+             logger.error(f"Ошибка при генерации текста Gemini ({model_name}): {e}", exc_info=True)
+             # Передаем текст ошибки для диагностики
+             return None, f"{GEMINI_REQUEST_ERROR}:{e}"
 
 async def analyze_image(image_bytes: bytes, prompt: str) -> str | None:
     """
@@ -103,6 +114,13 @@ async def analyze_image(image_bytes: bytes, prompt: str) -> str | None:
 
         return response.text
 
-    except Exception as e:
-        logger.error(f"Ошибка при анализе изображения Gemini ({VISION_MODEL}): {e}", exc_info=True)
-        return None, f"{IMAGE_ANALYSIS_ERROR}:{e}"
+    except api_core_exceptions.ResourceExhausted as e: # Ловим ошибку 429 (квота)
+        logger.error(f"Ошибка квоты Gemini Vision ({VISION_MODEL}): {e}", exc_info=False)
+        return None, GEMINI_QUOTA_ERROR
+    except Exception as e: # Ловим остальные ошибки
+        if "429" in str(e) and "quota" in str(e).lower():
+             logger.error(f"Обнаружена ошибка, похожая на квоту, в общем Exception ({VISION_MODEL}): {e}", exc_info=False)
+             return None, GEMINI_QUOTA_ERROR
+        else:
+             logger.error(f"Ошибка при анализе изображения Gemini ({VISION_MODEL}): {e}", exc_info=True)
+             return None, f"{IMAGE_ANALYSIS_ERROR}:{e}"

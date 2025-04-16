@@ -11,7 +11,7 @@ import asyncio
 from src.services import gemini
 from src.db import get_history, save_history # Импортируем функции БД
 from src.services.gemini import ( # Импортируем константы ошибок
-    GEMINI_API_KEY_ERROR, GEMINI_BLOCKED_ERROR, GEMINI_REQUEST_ERROR
+    GEMINI_API_KEY_ERROR, GEMINI_BLOCKED_ERROR, GEMINI_REQUEST_ERROR, GEMINI_QUOTA_ERROR
 )
 from src.config import DEFAULT_TEXT_MODEL
 from src.keyboards import get_main_keyboard
@@ -58,11 +58,16 @@ async def handle_text_message(message: types.Message, state: FSMContext, bot: Bo
     thinking_message = await message.answer(thinking_text)
     typing_task = asyncio.create_task(send_typing_periodically(bot, chat_id))
 
+    await state.update_data({LAST_FAILED_PROMPT_KEY: None})
+    thinking_text = localizer.format_value('thinking')
+    thinking_message = await message.answer(thinking_text)
+    typing_task = asyncio.create_task(send_typing_periodically(bot, chat_id))
+
     response_text = None
     error_code = None
     updated_history = None
     save_needed = False
-    selected_model = DEFAULT_TEXT_MODEL # Инициализация на случай ошибки до получения из state
+    selected_model = DEFAULT_TEXT_MODEL
 
     try:
         current_history = await get_history(user_id)
@@ -95,27 +100,23 @@ async def handle_text_message(message: types.Message, state: FSMContext, bot: Bo
 
     # --- Обработка результата и ОТПРАВКА ОТВЕТА / КНОПКИ ПОВТОРА ---
     final_response = ""
-    reply_markup = None # По умолчанию без inline кнопок
+    reply_markup = None
+    show_retry_button = False
 
     # --- Определяем, нужна ли кнопка повтора ---
-    show_retry_button = False
-    if error_code and error_code.startswith(GEMINI_REQUEST_ERROR):
-        show_retry_button = True
+    if error_code and error_code == GEMINI_QUOTA_ERROR: # <<< ПРОВЕРКА КВОТЫ
+        final_response = localizer.format_value('error-quota-exceeded')
+        logger.warning(f"Превышена квота Gemini ({selected_model}) для user_id={user_id}")
+        # Кнопку повтора НЕ ПОКАЗЫВАЕМ
+    elif error_code and error_code.startswith(GEMINI_REQUEST_ERROR):
+        show_retry_button = True # <<< Показываем кнопку только для этой ошибки
         error_detail = error_code.split(":", 1)[1] if ":" in error_code else "Unknown Error"
         final_response = localizer.format_value('error-gemini-request', args={'error': error_detail})
         logger.warning(f"Ошибка запроса Gemini ({selected_model}) для user_id={user_id}: {error_code}")
-    elif not response_text and not error_code: # Случай, когда Gemini вернул пустой ответ без ошибки
-        show_retry_button = True
+    elif not response_text and not error_code: # Пустой ответ без ошибки
+        show_retry_button = True # <<< Показываем кнопку и здесь
         final_response = localizer.format_value('error-gemini-fetch')
         logger.error(f"Неожиданный результат от Gemini ({selected_model}) для user_id={user_id}: нет ни текста, ни ошибки.")
-
-    # --- Сохраняем промпт и создаем кнопку, если нужно ---
-    if show_retry_button:
-        await state.update_data({LAST_FAILED_PROMPT_KEY: user_text}) # Сохраняем текст для повтора
-        builder = InlineKeyboardBuilder()
-        retry_button_text = localizer.format_value('button-retry-request')
-        builder.button(text=retry_button_text, callback_data=RETRY_CALLBACK_DATA)
-        reply_markup = builder.as_markup() # Устанавливаем клавиатуру
     elif error_code and error_code == GEMINI_API_KEY_ERROR:
         final_response = localizer.format_value('error-gemini-api-key')
         logger.error(f"Ошибка ключа API Gemini для user_id={user_id}")
@@ -125,6 +126,14 @@ async def handle_text_message(message: types.Message, state: FSMContext, bot: Bo
         logger.warning(f"Ответ Gemini заблокирован ({selected_model}) для user_id={user_id}. Причина: {reason}")
     elif response_text and not error_code:
         final_response = response_text # Успешный ответ
+
+    # Создаем кнопку ТОЛЬКО если show_retry_button == True
+    if show_retry_button:
+        await state.update_data({LAST_FAILED_PROMPT_KEY: user_text})
+        builder = InlineKeyboardBuilder()
+        retry_button_text = localizer.format_value('button-retry-request')
+        builder.button(text=retry_button_text, callback_data=RETRY_CALLBACK_DATA)
+        reply_markup = builder.as_markup()
 
     # Отправляем/Редактируем сообщение
     try:
@@ -217,13 +226,13 @@ async def handle_retry_request(callback: types.CallbackQuery, state: FSMContext,
             model_msg_hist = create_gemini_message("model", response_text)
             updated_history = current_history + [user_msg_hist, model_msg_hist]
             save_needed = True
-            await state.update_data({LAST_FAILED_PROMPT_KEY: None}) # Очищаем промпт после успеха
+            await state.update_data({LAST_FAILED_PROMPT_KEY: None})
             logger.info(f"Повторный запрос Gemini ({selected_model}) успешен для user_id={user_id}.")
         elif error_code and error_code.startswith(GEMINI_BLOCKED_ERROR):
              user_msg_hist = create_gemini_message("user", original_prompt)
              updated_history = current_history + [user_msg_hist]
              save_needed = True
-             await state.update_data({LAST_FAILED_PROMPT_KEY: None}) # Очищаем промпт и при блокировке
+             await state.update_data({LAST_FAILED_PROMPT_KEY: None})
              logger.warning(f"Повторный запрос Gemini ({selected_model}) заблокирован для user_id={user_id}.")
         # При других ошибках промпт остается в state для возможного следующего повтора
 
@@ -235,33 +244,38 @@ async def handle_retry_request(callback: types.CallbackQuery, state: FSMContext,
 
     # --- Обработка результата повторного запроса ---
     final_response = ""
-    reply_markup = None # По умолчанию без кнопки
+    reply_markup = None
+    show_retry_button_again = False
 
     # Определяем, нужна ли кнопка повтора СНОВА
-    show_retry_button_again = False
-    if error_code and error_code.startswith(GEMINI_REQUEST_ERROR):
-        show_retry_button_again = True
+    if error_code and error_code == GEMINI_QUOTA_ERROR: # <<< ПРОВЕРКА КВОТЫ
+        final_response = localizer.format_value('error-quota-exceeded')
+        logger.warning(f"Повторный запрос Gemini ({selected_model}) столкнулся с квотой для user_id={user_id}")
+        # Кнопку повтора НЕ ПОКАЗЫВАЕМ
+    elif error_code and error_code.startswith(GEMINI_REQUEST_ERROR):
+        show_retry_button_again = True # <<< Показываем кнопку только для этой ошибки
         error_detail = error_code.split(":", 1)[1] if ":" in error_code else "Unknown Error"
         final_response = localizer.format_value('error-gemini-request', args={'error': error_detail})
         logger.warning(f"Повторный запрос Gemini ({selected_model}) снова неудачен для user_id={user_id}: {error_code}")
     elif not response_text and not error_code:
-        show_retry_button_again = True
+        show_retry_button_again = True # <<< Показываем кнопку и здесь
         final_response = localizer.format_value('error-gemini-fetch')
         logger.error(f"Повторный запрос Gemini ({selected_model}) снова вернул пустой ответ для user_id={user_id}.")
-
-    if show_retry_button_again:
-        # Промпт уже должен быть в state, просто создаем кнопку
-        builder = InlineKeyboardBuilder()
-        retry_button_text = localizer.format_value('button-retry-request')
-        builder.button(text=retry_button_text, callback_data=RETRY_CALLBACK_DATA)
-        reply_markup = builder.as_markup()
     elif error_code and error_code == GEMINI_API_KEY_ERROR:
         final_response = localizer.format_value('error-gemini-api-key')
     elif error_code and error_code.startswith(GEMINI_BLOCKED_ERROR):
         reason = error_code.split(":", 1)[1] if ":" in error_code else "Неизвестно"
         final_response = localizer.format_value('error-blocked-content', args={'reason': reason})
     elif response_text and not error_code:
-        final_response = response_text
+        final_response = response_text # Успешный ответ
+
+    # Создаем кнопку ТОЛЬКО если show_retry_button_again == True
+    if show_retry_button_again:
+        # Промпт все еще в state, если мы здесь
+        builder = InlineKeyboardBuilder()
+        retry_button_text = localizer.format_value('button-retry-request')
+        builder.button(text=retry_button_text, callback_data=RETRY_CALLBACK_DATA)
+        reply_markup = builder.as_markup()
 
     # Редактируем сообщение, которое показывало "Повторяю запрос..."
     try:

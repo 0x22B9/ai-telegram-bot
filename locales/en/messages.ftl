@@ -46,3 +46,4 @@ error-gemini-api-key = Error: Gemini API key is not configured.
 error-gemini-request = An error occurred while contacting Gemini: Contact the administrator!
 error-image-analysis-request = An error occurred while analyzing the image: Contact the administrator!
 error-retry-not-found = 🤷 Couldn't find the previous request to retry. Maybe the bot was restarted.
+error-quota-exceeded = Oops! It seems I'm too popular right now and have reached the AI request limit. Try again a bit later. 🙏

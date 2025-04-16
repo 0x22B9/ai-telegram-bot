@@ -48,3 +48,4 @@ error-gemini-api-key = Error: La clave API de Gemini no está configurada.
 error-gemini-request = Ocurrió un error al contactar con Gemini: ¡Póngase en contacto con el administrador!
 error-image-analysis-request = Ocurrió un error al analizar la imagen: ¡Póngase en contacto con el administrador!
 error-retry-not-found = 🤷 No se pudo encontrar la solicitud anterior para reintentar. Es posible que el bot se haya reiniciado.
+error-quota-exceeded = ¡Uy! Parece que estoy demasiado popular ahora mismo y he alcanzado el límite de solicitudes de IA. Intenta de nuevo un poco más tarde. 🙏
