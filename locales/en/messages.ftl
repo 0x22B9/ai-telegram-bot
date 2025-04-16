@@ -21,6 +21,7 @@ help-text =
 # Processing messages
 thinking = 🧠 Thinking about your question...
 analyzing = 🖼️ Analyzing the image...
+thinking-retry = ⏳ Retrying your previous request...
 
 # AI Models
 model-prompt = Select an AI model for text generation:
@@ -31,6 +32,7 @@ newchat-started = ✨ Alright, let's start a new conversation! I've forgotten th
 
 # Keyboard
 main-keyboard-placeholder = Select a command or enter text...
+button-retry-request = 🔁 Retry request?
 
 # Error messages
 error-gemini-fetch = 😔 Failed to get a response from Gemini. Please try again later.
@@ -43,3 +45,4 @@ error-blocked-image-content = My response to the image was blocked due to safety
 error-gemini-api-key = Error: Gemini API key is not configured.
 error-gemini-request = An error occurred while contacting Gemini: Contact the administrator!
 error-image-analysis-request = An error occurred while analyzing the image: Contact the administrator!
+error-retry-not-found = 🤷 Couldn't find the previous request to retry. Maybe the bot was restarted.
