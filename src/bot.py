@@ -1,13 +1,12 @@
 import asyncio
 import logging
 
-# Добавляем импорт DefaultBotProperties
 from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties # <<< ДОБАВИТЬ ЭТОТ ИМПОРТ
+from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.mongo import MongoStorage
 
 from src.config import config, load_config
-from src.handlers import common_router, text_router, image_router
+from src.handlers import common_router, text_router, image_router, settings_router
 from src.middlewares import LanguageMiddleware
 from src.db import connect_db, close_db
 
@@ -51,44 +50,32 @@ async def main():
 
     bot = Bot(
         token=config.bot.token,
-        default=DefaultBotProperties(parse_mode="HTML"))
-    # Используйте RedisStorage или другое персистентное хранилище для продакшена,
-    # чтобы выбор языка сохранялся между перезапусками!
+        default=DefaultBotProperties(parse_mode="HTML")
+    )
+
     try:
-        storage = MongoStorage.from_url(
-            url=config.mongo.uri
-            # collection="aiogram_fsm_states" # Можно указать имя коллекции, если нужно
-        )
-        logger.info(f"Используется MongoStorage для FSM (БД из URI: {config.mongo.uri.split('/')[-1].split('?')[0]})") # Логируем предполагаемую БД из URI
+        storage = MongoStorage.from_url(url=config.mongo.uri)
+        logger.info(f"Используется MongoStorage для FSM (БД из URI)")
     except Exception as e:
         logger.critical(f"Не удалось инициализировать MongoStorage из URI: {e}", exc_info=True)
-        logger.critical("Убедитесь, что имя базы данных указано в MONGO_URI в .env файле (например, ...mongodb.net/имя_базы?...)")
-        return # Не запускаем бота без хранилища FSM
+        return
+
     dp = Dispatcher(storage=storage)
 
-    # --- Регистрация обработчиков жизненного цикла ---
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
-
-    # --- Регистрация Middleware ---
-    # Важно: регистрируем ДО роутеров, чтобы localizer был доступен везде
     dp.update.outer_middleware(LanguageMiddleware())
     logger.info("Middleware языка зарегистрирован.")
 
-    # --- Подключение роутеров ---
     logger.info("Подключение роутеров...")
-    # Порядок важен, если есть пересекающиеся фильтры, но здесь не критично
-    dp.include_router(common_router) # Обработчики /start, /help, колбэки
-    dp.include_router(text_router)   # Обработчик текста
-    dp.include_router(image_router)  # Обработчик изображений
+    dp.include_router(common_router)
+    dp.include_router(text_router)
+    dp.include_router(image_router)
+    dp.include_router(settings_router) # <<< РЕГИСТРИРУЕМ НОВЫЙ РОУТЕР
     logger.info("Роутеры подключены.")
 
-    await bot.delete_webhook(drop_pending_updates=True)
-    logger.info("Вебхук удален.")
-
-    logger.info("Запуск бота (polling)...")
+    logger.info("Запуск polling...")
     try:
-        # Передаем аргументы в on_startup через dispatcher
         await dp.start_polling(bot)
     except Exception as e:
         logger.critical(f"Критическая ошибка во время polling: {e}", exc_info=True)
@@ -97,4 +84,4 @@ if __name__ == '__main__':
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Бот остановлен вручную.")
+        logger.info("Бот остановлен вручную (KeyboardInterrupt/SystemExit).")

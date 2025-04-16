@@ -12,6 +12,7 @@ help-text =
     /newchat - Start a new conversation (clear history)
     /model - Select an AI model for text generation
     /language - Change the interface language
+    /settings - (ONLY IF YOU KNOW WHAT YOU'RE DOING) Configure Gemini generation settings
     /help - Show this message
 
     <b>How to use:</b>
@@ -33,6 +34,20 @@ newchat-started = ✨ Alright, let's start a new conversation! I've forgotten th
 # Keyboard
 main-keyboard-placeholder = Select a command or enter text...
 button-retry-request = 🔁 Retry request?
+settings-current-prompt = Current Gemini generation settings:
+settings-button-temperature = 🌡️ Temperature: { $value }
+settings-button-max-tokens = 📏 Max length: { $value }
+settings-prompt-temperature = Select temperature (affects creativity):
+settings-prompt-max-tokens = Select maximum response length (in tokens):
+settings-option-default = Default ({ $value })
+settings-option-temperature-precise = 0.3 (Precise)
+settings-option-temperature-balanced = 0.7 (Balanced)
+settings-option-temperature-creative = 1.0 (Creative)
+settings-option-max-tokens-short = 512 (Short)
+settings-option-max-tokens-medium = 1024 (Medium)
+settings-option-max-tokens-long = 2048 (Long)
+settings-option-max-tokens-very_long = 4096 (Very long)
+button-back = ⬅️ Back
 
 # Error messages
 error-gemini-fetch = 😔 Failed to get a response from Gemini. Please try again later.
@@ -47,3 +62,4 @@ error-gemini-request = An error occurred while contacting Gemini: Contact the ad
 error-image-analysis-request = An error occurred while analyzing the image: Contact the administrator!
 error-retry-not-found = 🤷 Couldn't find the previous request to retry. Maybe the bot was restarted.
 error-quota-exceeded = Oops! It seems I'm too popular right now and have reached the AI request limit. Try again a bit later. 🙏
+error-settings-save = ❌ Failed to save setting. Try again.

@@ -14,6 +14,7 @@ help-text =
     /newchat - Iniciar un nuevo diálogo (limpiar historial)
     /model - Seleccionar un modelo de IA para generar texto
     /language - Cambiar el idioma de la interfaz
+    /settings - (SOLO SI SABES LO QUE ESTÁS HACIENDO) Configurar parámetros de generación de Gemini
     /help - Mostrar este mensaje
 
     <b>Cómo usar:</b>
@@ -35,6 +36,20 @@ newchat-started = ✨ ¡Bien, empecemos un nuevo diálogo! He olvidado el contex
 # Teclado
 main-keyboard-placeholder = Seleccione un comando o escriba un texto...
 button-retry-request = 🔁 ¿Reintentar solicitud?
+settings-current-prompt = Configuración actual de generación de Gemini:
+settings-button-temperature = 🌡️ Temperatura: { $value }
+settings-button-max-tokens = 📏 Longitud máxima: { $value }
+settings-prompt-temperature = Selecciona la temperatura (afecta la creatividad):
+settings-prompt-max-tokens = Selecciona la longitud máxima de la respuesta (en tokens):
+settings-option-default = Predeterminado ({ $value })
+settings-option-temperature-precise = 0.3 (Preciso)
+settings-option-temperature-balanced = 0.7 (Equilibrado)
+settings-option-temperature-creative = 1.0 (Creativo)
+settings-option-max-tokens-short = 512 (Corto)
+settings-option-max-tokens-medium = 1024 (Medio)
+settings-option-max-tokens-long = 2048 (Largo)
+settings-option-max-tokens-very_long = 4096 (Muy largo)
+button-back = ⬅️ Atrás
 
 # Mensajes de error
 error-gemini-fetch = 😔 No se pudo obtener una respuesta de Gemini. Por favor, inténtalo más tarde.
@@ -49,3 +64,4 @@ error-gemini-request = Ocurrió un error al contactar con Gemini: ¡Póngase en 
 error-image-analysis-request = Ocurrió un error al analizar la imagen: ¡Póngase en contacto con el administrador!
 error-retry-not-found = 🤷 No se pudo encontrar la solicitud anterior para reintentar. Es posible que el bot se haya reiniciado.
 error-quota-exceeded = ¡Uy! Parece que estoy demasiado popular ahora mismo y he alcanzado el límite de solicitudes de IA. Intenta de nuevo un poco más tarde. 🙏
+error-settings-save = ❌ No se pudo guardar la configuración. Intenta de nuevo.

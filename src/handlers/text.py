@@ -9,7 +9,7 @@ from typing import Dict, Any
 import asyncio
 
 from src.services import gemini
-from src.db import get_history, save_history # Импортируем функции БД
+from src.db import get_history, get_user_settings, save_history 
 from src.services.gemini import ( # Импортируем константы ошибок
     GEMINI_API_KEY_ERROR, GEMINI_BLOCKED_ERROR, GEMINI_REQUEST_ERROR, GEMINI_QUOTA_ERROR
 )
@@ -51,13 +51,6 @@ async def handle_text_message(message: types.Message, state: FSMContext, bot: Bo
     chat_id = message.chat.id
     logger.info(f"Текст от user_id={user_id} ({localizer.locales[0]}): {user_text[:50]}...")
 
-    # Сразу очистим предыдущий неудачный запрос, если он был
-    await state.update_data({LAST_FAILED_PROMPT_KEY: None})
-
-    thinking_text = localizer.format_value('thinking')
-    thinking_message = await message.answer(thinking_text)
-    typing_task = asyncio.create_task(send_typing_periodically(bot, chat_id))
-
     await state.update_data({LAST_FAILED_PROMPT_KEY: None})
     thinking_text = localizer.format_value('thinking')
     thinking_message = await message.answer(thinking_text)
@@ -70,14 +63,21 @@ async def handle_text_message(message: types.Message, state: FSMContext, bot: Bo
     selected_model = DEFAULT_TEXT_MODEL
 
     try:
+        # --- Получаем И историю, И настройки ---
         current_history = await get_history(user_id)
+        user_temp, user_max_tokens = await get_user_settings(user_id) # <<< ПОЛУЧАЕМ НАСТРОЙКИ
+        logger.debug(f"Настройки для user_id={user_id}: temp={user_temp}, tokens={user_max_tokens}")
+        # ---------------------------------------
         user_data = await state.get_data()
         selected_model = user_data.get("selected_model", DEFAULT_TEXT_MODEL)
 
+        # --- Передаем настройки в Gemini ---
         response_text, error_code = await gemini.generate_text_with_history(
             history=current_history,
             new_prompt=user_text,
-            model_name=selected_model
+            model_name=selected_model,
+            temperature=user_temp, # <<< ПЕРЕДАЕМ
+            max_output_tokens=user_max_tokens # <<< ПЕРЕДАЕМ
         )
 
         if response_text and not error_code:
@@ -140,28 +140,27 @@ async def handle_text_message(message: types.Message, state: FSMContext, bot: Bo
         await thinking_message.edit_text(final_response, reply_markup=reply_markup) # Передаем клавиатуру (или None)
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
-             # Игнорируем ошибку, если сообщение не изменилось (например, ошибка та же)
              logger.debug(f"Сообщение {thinking_message.message_id} не было изменено.")
         elif "can't parse entities" in str(e):
             logger.warning(f"Ошибка парсинга Markdown ({selected_model}) для user_id={user_id}. Отправка plain text.")
             try:
-                # Повторно отправляем с кнопкой (если она была) и без парсинга
                 await thinking_message.edit_text(final_response, parse_mode=None, reply_markup=reply_markup)
             except Exception as fallback_e:
                 logger.error(f"Не удалось отправить ответ ({selected_model}) plain text для user_id={user_id}: {fallback_e}", exc_info=True)
                 error_msg = localizer.format_value('error-display')
-                await thinking_message.edit_text(error_msg) # Убираем кнопку при фатальной ошибке отправки
+                await thinking_message.edit_text(error_msg)
                 save_needed = False
         else:
             logger.error(f"Неожиданная ошибка TelegramBadRequest ({selected_model}) для user_id={user_id}: {e}", exc_info=True)
             error_msg = localizer.format_value('error-general')
-            await thinking_message.edit_text(error_msg) # Убираем кнопку при фатальной ошибке отправки
+            await thinking_message.edit_text(error_msg)
             save_needed = False
     except Exception as e:
         logger.error(f"Общая ошибка при редактировании сообщения ({selected_model}) для user_id={user_id}: {e}", exc_info=True)
         error_msg = localizer.format_value('error-general')
-        await thinking_message.edit_text(error_msg) # Убираем кнопку при фатальной ошибке отправки
+        await thinking_message.edit_text(error_msg)
         save_needed = False
+
 
     # Сохраняем историю (только если был успешный ответ или блокировка)
     if save_needed and updated_history is not None:
@@ -209,15 +208,26 @@ async def handle_retry_request(callback: types.CallbackQuery, state: FSMContext,
     save_needed = False
     selected_model = DEFAULT_TEXT_MODEL
 
+    typing_task = asyncio.create_task(send_typing_periodically(bot, chat_id))
+    response_text = None
+    error_code = None
+    updated_history = None
+    save_needed = False
+    selected_model = DEFAULT_TEXT_MODEL
+
     try:
         current_history = await get_history(user_id)
-        # Модель уже должна быть в state, если пользователь ее выбирал
+        # Получаем настройки и здесь
+        user_temp, user_max_tokens = await get_user_settings(user_id) # <<< ПОЛУЧАЕМ НАСТРОЙКИ
         selected_model = user_data.get("selected_model", DEFAULT_TEXT_MODEL)
 
+        # Передаем настройки
         response_text, error_code = await gemini.generate_text_with_history(
             history=current_history,
             new_prompt=original_prompt, # Используем сохраненный промпт
-            model_name=selected_model
+            model_name=selected_model,
+            temperature=user_temp, # <<< ПЕРЕДАЕМ
+            max_output_tokens=user_max_tokens # <<< ПЕРЕДАЕМ
         )
 
         # Обработка истории при успехе или блокировке (как в основном хэндлере)

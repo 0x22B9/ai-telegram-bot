@@ -1,10 +1,10 @@
 import logging
 import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold, ContentDict
+from google.generativeai.types import HarmCategory, HarmBlockThreshold, ContentDict, GenerationConfigDict
 from google.api_core import exceptions as api_core_exceptions
 import PIL.Image
 import io
-from typing import List, Dict, Any # Добавлено для типизации
+from typing import List, Dict, Any, Optional
 
 from src.config import config, VISION_MODEL, DEFAULT_TEXT_MODEL
 
@@ -38,19 +38,38 @@ IMAGE_ANALYSIS_ERROR = "IMAGE_ANALYSIS_ERROR"
 async def generate_text_with_history(
     history: List[Dict[str, Any]],
     new_prompt: str,
-    model_name: str = DEFAULT_TEXT_MODEL # Используем дефолтную модель, если не передана
+    model_name: str = DEFAULT_TEXT_MODEL,
+    # --- Добавлены параметры настроек ---
+    temperature: Optional[float] = None,
+    max_output_tokens: Optional[int] = None
+    # ----------------------------------
 ) -> tuple[str | None, str | None]:
-    """
-    Генерирует текст с использованием указанной модели Gemini, учитывая историю.
-    """
     if not (config and config.gemini.api_key):
         logger.error("Gemini API не сконфигурирован.")
         return None, GEMINI_API_KEY_ERROR
 
     try:
-        # --- Используем переданное имя модели ---
         logger.debug(f"Использование модели Gemini: {model_name}")
         model = genai.GenerativeModel(model_name)
+
+        # --- Формируем GenerationConfig ---
+        generation_config = GenerationConfigDict() # Используем типизированный dict
+        config_params_set = False
+        if temperature is not None:
+            # Валидация (хотя должна быть и на уровне хендлера)
+            if 0.0 <= temperature <= 1.0:
+                 generation_config['temperature'] = temperature
+                 config_params_set = True
+            else:
+                 logger.warning(f"Некорректное значение temperature ({temperature}), используется дефолтное API.")
+        if max_output_tokens is not None:
+             if max_output_tokens > 0:
+                 generation_config['max_output_tokens'] = max_output_tokens
+                 config_params_set = True
+             else:
+                 logger.warning(f"Некорректное значение max_output_tokens ({max_output_tokens}), используется дефолтное API.")
+
+        logger.debug(f"Generation config: {generation_config if config_params_set else 'Default API settings'}")
         # ---------------------------------------
 
         # Важно: Конвертируем наш формат истории в формат, ожидаемый библиотекой google-generativeai
@@ -69,6 +88,7 @@ async def generate_text_with_history(
 
         response = await chat.send_message_async(
             new_prompt,
+            generation_config=generation_config if config_params_set else None,
             safety_settings=safety_settings
         )
 
