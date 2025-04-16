@@ -29,6 +29,9 @@ model-chosen = AI model set to: { $model_name }
 # Creating a new chat
 newchat-started = ✨ Alright, let's start a new conversation! I've forgotten the previous context.
 
+# Keyboard
+main-keyboard-placeholder = Select a command or enter text...
+
 # Error messages
 error-gemini-fetch = 😔 Failed to get a response from Gemini. Please try again later.
 error-image-download = 😔 Failed to load your image. Please try again.

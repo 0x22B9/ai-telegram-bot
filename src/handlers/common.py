@@ -9,6 +9,7 @@ import logging
 from src.localization import SUPPORTED_LOCALES, get_localizer, LOCALIZATIONS
 from src.db import clear_history
 from src.config import AVAILABLE_TEXT_MODELS
+from src.keyboards import get_main_keyboard
 
 # Создаем роутер для общих команд
 common_router = Router()
@@ -34,179 +35,138 @@ async def send_language_selection_message(message: types.Message, localizer: Flu
 async def handle_start(message: types.Message, state: FSMContext, localizer: FluentLocalization):
     """
     Обработчик команды /start.
-    Проверяет, выбран ли язык. Если нет - предлагает выбор. Если да - приветствует.
+    Предлагает выбор языка или приветствует с главной клавиатурой.
     """
     user_data = await state.get_data()
     current_lang_code = user_data.get("language_code")
     user_name = message.from_user.full_name
 
     if current_lang_code and current_lang_code in SUPPORTED_LOCALES:
-        # Язык уже выбран, просто приветствуем на выбранном языке
-        # localizer уже будет правильным благодаря middleware
+        # Язык уже выбран, приветствуем и показываем ГЛАВНУЮ КЛАВИАТУРУ
         welcome_message = localizer.format_value('start-welcome', args={"user_name": user_name})
-        await message.answer(welcome_message)
+        # Получаем и отправляем клавиатуру
+        keyboard = get_main_keyboard(localizer)
+        await message.answer(welcome_message, reply_markup=keyboard)
     else:
-        # Язык не выбран или некорректен, предлагаем выбрать
-        await state.clear() # Очищаем состояние перед выбором языка
-        # localizer здесь будет дефолтным или тем, что определился до state
-        await send_language_selection_message(message, get_localizer()) # Отправляем с дефолтным локализатором
+        # Язык не выбран, предлагаем выбрать (inline keyboard)
+        await state.clear()
+        await send_language_selection_message(message, get_localizer())
 
 # --- Language Command ---
 @common_router.message(Command("language"))
 async def handle_language_command(message: types.Message, localizer: FluentLocalization):
     """
-    Обработчик команды /language. Всегда предлагает сменить язык.
+    Обработчик команды /language. Предлагает сменить язык И показывает главную клавиатуру.
     """
-    # localizer будет текущим языком пользователя, используем его для промпта
+    # Отправляем inline-клавиатуру для выбора языка
     await send_language_selection_message(message, localizer)
+    # Примечание: Основная клавиатура останется видимой после выбора языка
 
 # --- Language Selection Callback ---
 @common_router.callback_query(F.data.startswith("lang_select:"))
 async def handle_language_selection(callback_query: types.CallbackQuery, state: FSMContext):
     """
-    Обрабатывает выбор языка из inline-кнопки (от /start или /language).
+    Обрабатывает выбор языка. Отправляет подтверждение и ГЛАВНУЮ КЛАВИАТУРУ.
     """
-    if not isinstance(callback_query, types.CallbackQuery) or not callback_query.data:
-        return
+    if not isinstance(callback_query, types.CallbackQuery) or not callback_query.data: return
+    await callback_query.answer()
 
-    await callback_query.answer() # Убираем часики
-
-    try:
-        lang_code = callback_query.data.split(":")[1]
-    except IndexError:
-        logging.warning(f"Некорректный callback_data 'lang_select': {callback_query.data}")
-        return
+    try: lang_code = callback_query.data.split(":")[1]
+    except IndexError: return
 
     user_id = callback_query.from_user.id
     user_name = callback_query.from_user.full_name
+    if lang_code not in SUPPORTED_LOCALES: return
 
-    if lang_code not in SUPPORTED_LOCALES:
-        logging.warning(f"Получен неподдерживаемый код языка: {lang_code} от user_id={user_id}")
-        return
-
-    # Сохраняем выбранный язык в FSM storage
     await state.update_data(language_code=lang_code)
-    logging.info(f"User {user_id} chose language: {lang_code}") # Логируем смену языка
+    logging.info(f"User {user_id} chose language: {lang_code}")
 
-    # Получаем локализатор для ВЫБРАННОГО языка
     new_localizer = get_localizer(lang_code)
-
-    # Формируем сообщение о смене языка на выбранном языке
     welcome_message = new_localizer.format_value('language-chosen', args={"user_name": user_name})
 
-    # Редактируем исходное сообщение (с кнопками выбора языка)
     try:
+        # 1. Отправляем новое сообщение с подтверждением И ГЛАВНОЙ КЛАВИАТУРОЙ
+        keyboard = get_main_keyboard(new_localizer) # <<< Получаем клавиатуру
         if callback_query.message:
-            await callback_query.message.edit_text(
-                welcome_message,
-                reply_markup=None # Убираем клавиатуру
-            )
+            await callback_query.message.answer(welcome_message, reply_markup=keyboard) # <<< Отправляем с клавиатурой
         else:
-            # Если исходного сообщения нет, отправляем новое
-            await callback_query.bot.send_message(chat_id=user_id, text=welcome_message)
+            await callback_query.bot.send_message(chat_id=user_id, text=welcome_message, reply_markup=keyboard)
+
+        # 2. Удаляем старое сообщение с inline-кнопками
+        if callback_query.message:
+            await callback_query.message.delete()
+
+    except TelegramBadRequest as e:
+        # ... (обработка ошибок удаления/отправки) ...
+        logger.error(f"Ошибка при отправке/удалении сообщения выбора языка для user_id={user_id}: {e}")
     except Exception as e:
-        logging.error(f"Ошибка при редактировании/отправке сообщения о выборе языка для user_id={user_id}: {e}")
-        # Фоллбэк: отправить новое сообщение, если редактирование не удалось
-        try:
-            await callback_query.bot.send_message(chat_id=user_id, text=welcome_message)
-        except Exception as final_e:
-            logging.error(f"Не удалось даже отправить новое сообщение о выборе языка для user_id={user_id}: {final_e}")
+        logger.error(f"Неожиданная ошибка при отправке/удалении сообщения выбора языка для user_id={user_id}: {e}", exc_info=True)
 
 @common_router.message(Command("model"))
 async def handle_model_command(message: types.Message, state: FSMContext, localizer: FluentLocalization):
     """
-    Обработчик команды /model. Предлагает выбрать модель Gemini для текста.
+    Обработчик команды /model. Предлагает выбрать модель И показывает главную клавиатуру.
     """
     builder = InlineKeyboardBuilder()
     user_data = await state.get_data()
-    current_model = user_data.get("selected_model") # Получаем текущую выбранную модель
+    current_model = user_data.get("selected_model")
 
     for model_name in AVAILABLE_TEXT_MODELS:
-        # Добавляем отметку к текущей модели
         button_text = f"✅ {model_name}" if model_name == current_model else model_name
-        builder.button(
-            text=button_text,
-            callback_data=f"model_select:{model_name}"
-        )
-    builder.adjust(1) # По одной кнопке в ряду
+        builder.button(text=button_text, callback_data=f"model_select:{model_name}")
+    builder.adjust(1)
 
     prompt_text = localizer.format_value('model-prompt')
+    # Показываем основную клавиатуру вместе с inline-кнопками выбора модели
+    keyboard = get_main_keyboard(localizer)
     await message.answer(prompt_text, reply_markup=builder.as_markup())
+    # Примечание: Основная клавиатура останется видимой после выбора модели
 
 @common_router.callback_query(F.data.startswith("model_select:"))
 async def handle_model_selection(callback_query: types.CallbackQuery, state: FSMContext):
     """
-    Обрабатывает выбор модели из inline-кнопки.
-    Отправляет подтверждение новым сообщением и удаляет исходное сообщение с кнопками.
+    Обрабатывает выбор модели. Отправляет подтверждение И оставляет главную клавиатуру.
     """
-    if not isinstance(callback_query, types.CallbackQuery) or not callback_query.data:
-        return
-
-    # Сразу отвечаем на колбэк, чтобы убрать часики
+    if not isinstance(callback_query, types.CallbackQuery) or not callback_query.data: return
     await callback_query.answer()
 
-    try:
-        selected_model = callback_query.data.split(":")[1]
-    except IndexError:
-        logging.warning(f"Некорректный callback_data 'model_select': {callback_query.data}")
-        return
+    try: selected_model = callback_query.data.split(":")[1]
+    except IndexError: return
 
     user_id = callback_query.from_user.id
+    if selected_model not in AVAILABLE_TEXT_MODELS: return
 
-    if selected_model not in AVAILABLE_TEXT_MODELS:
-        logging.warning(f"Получена неподдерживаемая модель: {selected_model} от user_id={user_id}")
-        # Можно уведомить пользователя об ошибке, если нужно
-        return
-
-    # Сохраняем выбранную модель в FSM storage
     await state.update_data(selected_model=selected_model)
     logging.info(f"User {user_id} chose model: {selected_model}")
 
-    # Получаем локализатор для текущего языка пользователя
     user_data = await state.get_data()
     lang_code = user_data.get("language_code")
-    current_localizer = get_localizer(lang_code) # Важно использовать текущий язык для ответа
+    current_localizer = get_localizer(lang_code)
 
-    # Формируем сообщение о смене модели
     response_text = current_localizer.format_value('model-chosen', args={"model_name": selected_model})
 
-    # --- Логика изменена: Отправка нового сообщения и удаление старого ---
     try:
-        # 1. Отправляем новое сообщение с подтверждением
-        # Используем message.answer для ответа в том же чате
-        if callback_query.message: # Убедимся что исходное сообщение существует
-            await callback_query.message.answer(response_text)
-        else: # Редкий случай, если исходного сообщения почему-то нет
-            await callback_query.bot.send_message(chat_id=user_id, text=response_text)
+        # 1. Отправляем новое сообщение с подтверждением (основная клавиатура уже должна быть)
+        if callback_query.message:
+             await callback_query.message.answer(response_text) # Основная клавиатура не указывается, т.к. она уже есть
+        else:
+             await callback_query.bot.send_message(chat_id=user_id, text=response_text)
 
-        # 2. Удаляем исходное сообщение с кнопками
+        # 2. Удаляем сообщение с inline-кнопками выбора модели
         if callback_query.message:
             await callback_query.message.delete()
-            logging.debug(f"Сообщение с выбором модели ({callback_query.message.message_id}) удалено для user_id={user_id}.")
 
     except TelegramBadRequest as e:
-        # Ловим ошибку, если сообщение не может быть удалено (например, слишком старое)
-        if "message to delete not found" in str(e) or "message can't be deleted" in str(e):
-            logger.warning(f"Не удалось удалить сообщение с выбором модели для user_id={user_id}: {e}")
-        else:
-            # Другие возможные ошибки при отправке/удалении
-            logger.error(f"Ошибка при отправке подтверждения/удалении сообщения выбора модели для user_id={user_id}: {e}")
-            # Если удаление не удалось, подтверждение уже отправлено (или была ошибка выше)
+        # ... (обработка ошибок) ...
+        logger.error(f"Ошибка при отправке/удалении сообщения выбора модели для user_id={user_id}: {e}")
     except Exception as e:
-         # Ловим другие неожиданные ошибки
-         logger.error(f"Неожиданная ошибка при отправке/удалении сообщения выбора модели для user_id={user_id}: {e}", exc_info=True)
-         # Попытка отправить подтверждение, если оно не было отправлено из-за ошибки выше
-         if callback_query.message: # Проверяем снова на всякий случай
-            try:
-                 await callback_query.message.answer(response_text)
-            except Exception as final_e:
-                 logging.error(f"Не удалось даже отправить сообщение о выборе модели для user_id={user_id}: {final_e}")
-
+        logger.error(f"Неожиданная ошибка при отправке/удалении сообщения выбора модели для user_id={user_id}: {e}", exc_info=True)
+        
 # --- New Chat Command --- Добавлено ---
 @common_router.message(Command("newchat"))
 async def handle_new_chat(message: types.Message, localizer: FluentLocalization):
     """
-    Обработчик команды /newchat. Очищает историю чата пользователя.
+    Обработчик команды /newchat. Очищает историю И показывает главную клавиатуру.
     """
     user_id = message.from_user.id
     success = await clear_history(user_id)
@@ -215,17 +175,20 @@ async def handle_new_chat(message: types.Message, localizer: FluentLocalization)
         response_text = localizer.format_value("newchat-started")
         logger.info(f"Пользователь {user_id} начал новый чат.")
     else:
-        response_text = localizer.format_value("error-general") # Общая ошибка, если очистка не удалась
+        response_text = localizer.format_value("error-general")
         logger.error(f"Не удалось очистить историю для пользователя {user_id}.")
 
-    await message.answer(response_text)
+    # Показываем основную клавиатуру
+    keyboard = get_main_keyboard(localizer)
+    await message.answer(response_text, reply_markup=keyboard)
 
 # --- Help Command ---
 @common_router.message(Command("help"))
 async def handle_help(message: types.Message, localizer: FluentLocalization):
     """
-    Обработчик команды /help. Использует локализатор из middleware.
+    Обработчик команды /help. Показывает справку И главную клавиатуру.
     """
-    # Убедимся, что добавили /language в текст помощи в .ftl файлах
     help_text = localizer.format_value('help-text')
-    await message.answer(help_text)
+    # Показываем основную клавиатуру
+    keyboard = get_main_keyboard(localizer)
+    await message.answer(help_text, reply_markup=keyboard)

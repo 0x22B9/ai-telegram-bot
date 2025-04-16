@@ -31,6 +31,9 @@ model-chosen = El modelo de IA se ha establecido en: { $model_name }
 # Creación de un nuevo chat
 newchat-started = ✨ ¡Bien, empecemos un nuevo diálogo! He olvidado el contexto anterior.
 
+# Teclado
+main-keyboard-placeholder = Seleccione un comando o escriba un texto...
+
 # Mensajes de error
 error-gemini-fetch = 😔 No se pudo obtener una respuesta de Gemini. Por favor, inténtalo más tarde.
 error-image-download = 😔 No se pudo cargar tu imagen. Por favor, inténtalo de nuevo.

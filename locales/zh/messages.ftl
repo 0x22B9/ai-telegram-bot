@@ -31,6 +31,9 @@ model-chosen = 人工智能模型已设置为：{ $model_name }
 # 创建新聊天
 newchat-started = ✨ 好的，我们开始一个新对话！我已经忘记了之前的上下文。
 
+# 键盘
+main-keyboard-placeholder = 请选择指令或输入文本…
+
 # 错误消息
 error-gemini-fetch = 😔 无法从 Gemini 获取响应。请稍后再试。
 error-image-download = 😔 无法加载您的图片。请重试。
