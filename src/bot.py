@@ -10,7 +10,7 @@ from src.middlewares import LanguageMiddleware
 from src.db import connect_db, close_db
 from src.handlers import (
     common_router, text_router, image_router,
-    settings_router, image_generation_router
+    settings_router, image_generation_router, audio_router
 )
 
 logging.basicConfig(
@@ -72,10 +72,11 @@ async def main():
 
     logger.info("Подключение роутеров...")
     dp.include_router(common_router)
-    dp.include_router(text_router)
-    dp.include_router(image_router)
     dp.include_router(settings_router)
     dp.include_router(image_generation_router)
+    dp.include_router(audio_router)
+    dp.include_router(image_router)
+    dp.include_router(text_router)
     logger.info("Роутеры подключены.")
 
     logger.info("Запуск polling...")

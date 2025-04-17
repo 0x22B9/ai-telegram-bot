@@ -4,7 +4,7 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold, ContentD
 from google.api_core import exceptions as api_core_exceptions
 import PIL.Image
 import io
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from src.config import config, VISION_MODEL, DEFAULT_TEXT_MODEL
 
@@ -29,11 +29,87 @@ safety_settings = {
     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
 }
 
+AUDIO_TRANSCRIPTION_MODEL = "gemini-2.0-flash"
+
 GEMINI_QUOTA_ERROR = "GEMINI_QUOTA_ERROR"
 GEMINI_API_KEY_ERROR = "GEMINI_API_KEY_ERROR"
 GEMINI_BLOCKED_ERROR = "GEMINI_BLOCKED_ERROR"
 GEMINI_REQUEST_ERROR = "GEMINI_REQUEST_ERROR"
 IMAGE_ANALYSIS_ERROR = "IMAGE_ANALYSIS_ERROR"
+GEMINI_TRANSCRIPTION_ERROR = "GEMINI_TRANSCRIPTION_ERROR"
+
+async def transcribe_audio(audio_bytes: bytes, mime_type: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Транскрибирует аудиофайл с использованием Gemini API.
+    Возвращает (transcribed_text | None, error_code | None).
+    """
+    if not (config and config.gemini.api_key):
+        logger.error("Gemini API не сконфигурирован для транскрипции.")
+        return None, GEMINI_API_KEY_ERROR
+
+    transcription_prompt = "Transcribe this audio." # Простой промпт для транскрипции
+
+    try:
+        logger.info(f"Загрузка аудио ({len(audio_bytes)} байт) в Gemini...")
+        # 1. Загружаем файл
+        # Создаем файлоподобный объект из байтов
+        audio_file_obj = io.BytesIO(audio_bytes)
+        # mime_type важен для корректной обработки файла API
+        # Используем аргумент 'path' для передачи BytesIO
+        audio_file = genai.upload_file(
+            path=audio_file_obj, # <<< ПРАВИЛЬНЫЙ АРГУМЕНТ: path
+            display_name="user_voice_message.ogg", # Имя файла (даем расширение для ясности)
+            mime_type=mime_type
+        )
+        # audio_file_obj закроется автоматически при сборке мусора.
+        logger.info(f"Аудио успешно загружено: {audio_file.name}")
+
+        # 2. Генерируем контент с использованием загруженного файла
+        logger.info(f"Запрос транскрипции моделью {AUDIO_TRANSCRIPTION_MODEL}...")
+        model = genai.GenerativeModel(AUDIO_TRANSCRIPTION_MODEL)
+        response = await model.generate_content_async(
+            [transcription_prompt, audio_file], # Передаем промпт и файл
+            safety_settings=safety_settings,
+            # GenerationConfig для транскрипции обычно не нужен, но можно указать
+            # generation_config={"temperature": 0.1} # Низкая температура для точности
+        )
+
+        if not response.parts:
+            block_reason = response.prompt_feedback.block_reason.name if response.prompt_feedback else "Неизвестно"
+            logger.warning(f"Транскрипция Gemini ({AUDIO_TRANSCRIPTION_MODEL}) заблокирована. Причина: {block_reason}")
+            # Не удаляем файл при блокировке, он может быть полезен для анализа
+            # genai.delete_file(audio_file.name) # Удаляем файл после использования
+            return None, f"{GEMINI_BLOCKED_ERROR}:{block_reason}"
+
+        transcribed_text = response.text
+        logger.info(f"Аудио успешно транскрибировано ({len(transcribed_text)} символов).")
+
+        # 3. Удаляем файл после успешного использования (рекомендуется)
+        try:
+            genai.delete_file(audio_file.name)
+            logger.info(f"Загруженный аудиофайл {audio_file.name} удален.")
+        except Exception as delete_err:
+            logger.warning(f"Не удалось удалить загруженный аудиофайл {audio_file.name}: {delete_err}")
+
+
+        return transcribed_text, None
+
+    except api_core_exceptions.ResourceExhausted as e:
+        logger.error(f"Ошибка квоты Gemini при транскрипции ({AUDIO_TRANSCRIPTION_MODEL}): {e}", exc_info=False)
+        # Попытка удалить файл, если он был загружен до ошибки квоты
+        if 'audio_file' in locals() and audio_file:
+             try: genai.delete_file(audio_file.name)
+             except Exception: pass
+        return None, GEMINI_QUOTA_ERROR
+    except Exception as e:
+        logger.error(f"Ошибка при транскрипции аудио Gemini ({AUDIO_TRANSCRIPTION_MODEL}): {e}", exc_info=True)
+        # Попытка удалить файл, если он был загружен до ошибки
+        if 'audio_file' in locals() and audio_file:
+             try: genai.delete_file(audio_file.name)
+             except Exception: pass
+
+        # Возвращаем специфичную ошибку транскрипции
+        return None, f"{GEMINI_TRANSCRIPTION_ERROR}:{e}"
 
 async def generate_text_with_history(
     history: List[Dict[str, Any]],

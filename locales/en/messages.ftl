@@ -30,6 +30,13 @@ generate-image-prompt = 🎨 Enter a text description (prompt) for image generat
 generating-image = ✨ Magic in progress... Generating your image! This may take some time.
 error-invalid-prompt-type = Please enter a text description for the image.
 
+# Audio Processing
+processing-voice = 🎤 Processing your voice message...
+processing-transcribed-text = 🧠 Thinking about your request from audio...
+error-transcription-failed = ⚠️ Failed to transcribe audio: { $error }
+error-transcription-failed-unknown = ⚠️ Failed to transcribe audio due to an unknown error.
+error-processing-voice = ⚠️ An error occurred while processing your voice message.
+
 # AI Models
 model-prompt = Select an AI model for text generation:
 model-chosen = AI model set to: { $model_name }

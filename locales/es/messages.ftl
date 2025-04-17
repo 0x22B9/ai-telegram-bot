@@ -32,6 +32,13 @@ generate-image-prompt = 🎨 Ingresa una descripción de texto (prompt) para la 
 generating-image = ✨ ¡Magia en proceso... Generando tu imagen! Esto puede tomar algo de tiempo.
 error-invalid-prompt-type = Por favor, ingresa una descripción de texto para la imagen.
 
+# Procesamiento de audio
+processing-voice = 🎤 Procesando tu mensaje de voz...
+processing-transcribed-text = 🧠 Pensando en tu solicitud a partir del audio...
+error-transcription-failed = ⚠️ No se pudo transcribir el audio: { $error }
+error-transcription-failed-unknown = ⚠️ No se pudo transcribir el audio debido a un error desconocido.
+error-processing-voice = ⚠️ Ocurrió un error al procesar tu mensaje de voz.
+
 # Modelos de IA
 model-prompt = Selecciona un modelo de IA para generar texto:
 model-chosen = El modelo de IA se ha establecido en: { $model_name }

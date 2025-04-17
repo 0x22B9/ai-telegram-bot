@@ -32,6 +32,13 @@ generate-image-prompt = 🎨 输入用于生成图像的文本描述（提示）
 generating-image = ✨ 魔法进行中... 正在生成您的图像！这可能需要一些时间。
 error-invalid-prompt-type = 请为图像输入文本描述。
 
+# 音频处理
+processing-voice = 🎤 正在处理您的语音消息...
+processing-transcribed-text = 🧠 正在思考您从音频中提出的请求...
+error-transcription-failed = ⚠️ 无法转录音频：{ $error }
+error-transcription-failed-unknown = ⚠️ 由于未知错误，无法转录音频。
+error-processing-voice = ⚠️ 处理您的语音消息时发生错误。
+
 # 人工智能模型
 model-prompt = 选择用于生成文本的人工智能模型：
 model-chosen = 人工智能模型已设置为：{ $model_name }
