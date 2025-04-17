@@ -3,6 +3,7 @@ from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.enums import ChatAction
+from aiogram.filters import StateFilter
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from fluent.runtime import FluentLocalization # Импорт
 from typing import Dict, Any
@@ -44,7 +45,10 @@ async def send_typing_periodically(bot: Bot, chat_id: int):
         logger.error(f"Error in send_typing_periodically for chat {chat_id}: {e}", exc_info=True)
 # ----------------------------------------------------
 
-@text_router.message(F.text & ~F.text.startswith('/'))
+@text_router.message(
+    F.text & ~F.text.startswith('/'),
+    StateFilter(None)
+)
 async def handle_text_message(message: types.Message, state: FSMContext, bot: Bot, localizer: FluentLocalization):
     user_text = message.text
     user_id = message.from_user.id

@@ -10,6 +10,7 @@ help-text =
     <b>Commands:</b>
     /start - Restart the bot (show the welcome message)
     /newchat - Start a new conversation (clear history)
+    /generate_image - Generate an image from text
     /model - Select an AI model for text generation
     /language - Change the interface language
     /settings - (ONLY IF YOU KNOW WHAT YOU'RE DOING) Configure Gemini generation settings
@@ -23,6 +24,11 @@ help-text =
 thinking = 🧠 Thinking about your question...
 analyzing = 🖼️ Analyzing the image...
 thinking-retry = ⏳ Retrying your previous request...
+
+# Image Generation
+generate-image-prompt = 🎨 Enter a text description (prompt) for image generation:
+generating-image = ✨ Magic in progress... Generating your image! This may take some time.
+error-invalid-prompt-type = Please enter a text description for the image.
 
 # AI Models
 model-prompt = Select an AI model for text generation:
@@ -63,3 +69,9 @@ error-image-analysis-request = An error occurred while analyzing the image: Cont
 error-retry-not-found = 🤷 Couldn't find the previous request to retry. Maybe the bot was restarted.
 error-quota-exceeded = Oops! It seems I'm too popular right now and have reached the AI request limit. Try again a bit later. 🙏
 error-settings-save = ❌ Failed to save setting. Try again.
+error-image-api_error = ❌ Image generation API error. Try again later.
+error-image-timeout_error = ⏳ Image generation server is not responding or the model is loading. Try again later.
+error-image-rate_limit_error = 🚦 Too many requests! Image generation limit exceeded. Try again later.
+error-image-content_filter_error = 🙅 Request rejected by safety filter. Try modifying the prompt.
+error-image-unknown = ❓ Unknown error during image generation.
+error-telegram-send = 😔 Failed to send the generated image.

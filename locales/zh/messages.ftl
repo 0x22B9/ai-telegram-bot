@@ -12,6 +12,7 @@ help-text =
     <b>命令:</b>
     /start - 重新启动机器人（显示欢迎信息）
     /newchat - 开始新对话（清除历史记录）
+    /generate_image - 根据文本生成图像
     /model - 选择用于生成文本的人工智能模型
     /language - 更改界面语言
     /settings - (只有在你知道自己在做什么的情况下) 配置 Gemini 生成设置
@@ -25,6 +26,11 @@ help-text =
 thinking = 🧠 正在思考您的问题...
 analyzing = 🖼️ 正在分析图片...
 thinking-retry = ⏳ 正在重试您的上一个请求...
+
+# 图像生成
+generate-image-prompt = 🎨 输入用于生成图像的文本描述（提示）：
+generating-image = ✨ 魔法进行中... 正在生成您的图像！这可能需要一些时间。
+error-invalid-prompt-type = 请为图像输入文本描述。
 
 # 人工智能模型
 model-prompt = 选择用于生成文本的人工智能模型：
@@ -65,3 +71,9 @@ error-image-analysis-request = 分析图片时出错：联系管理员！
 error-retry-not-found = 🤷 无法找到要重试的上一个请求。机器人可能已重启。
 error-quota-exceeded = 哎呀！看来我现在太受欢迎了，已经达到了AI请求的限制。请稍后再试。🙏
 error-settings-save = ❌ 无法保存设置。请重试。
+error-image-api_error = ❌ 图像生成API错误。请稍后再试。
+error-image-timeout_error = ⏳ 图像生成服务器无响应或模型正在加载。请稍后再试。
+error-image-rate_limit_error = 🚦 请求过多！已超出图像生成限制。请稍后再试。
+error-image-content_filter_error = 🙅 请求被安全过滤器拒绝。请尝试修改提示。
+error-image-unknown = ❓ 生成图像时发生未知错误。
+error-telegram-send = 😔 无法发送生成的图像。

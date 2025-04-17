@@ -6,9 +6,12 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.mongo import MongoStorage
 
 from src.config import config, load_config
-from src.handlers import common_router, text_router, image_router, settings_router
 from src.middlewares import LanguageMiddleware
 from src.db import connect_db, close_db
+from src.handlers import (
+    common_router, text_router, image_router,
+    settings_router, image_generation_router
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,7 +74,8 @@ async def main():
     dp.include_router(common_router)
     dp.include_router(text_router)
     dp.include_router(image_router)
-    dp.include_router(settings_router) # <<< РЕГИСТРИРУЕМ НОВЫЙ РОУТЕР
+    dp.include_router(settings_router)
+    dp.include_router(image_generation_router)
     logger.info("Роутеры подключены.")
 
     logger.info("Запуск polling...")
