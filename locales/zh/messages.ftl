@@ -44,11 +44,11 @@ settings-prompt-max-tokens = 选择最大回复长度（以令牌计）：
 settings-option-default = 默认 ({ $value })
 settings-option-temperature-precise = 0.3（精确）
 settings-option-temperature-balanced = 0.7（平衡）
-settings-option-temperature-creative = 1.0（创意）
+settings-option-temperature-creative = 1.4（创意）
 settings-option-max-tokens-short = 512（短）
 settings-option-max-tokens-medium = 1024（中等）
 settings-option-max-tokens-long = 2048（长）
-settings-option-max-tokens-very_long = 4096（非常长）
+settings-option-max-tokens-very_long = 8192（非常长）
 button-back = ⬅️ 返回
 
 # 错误消息

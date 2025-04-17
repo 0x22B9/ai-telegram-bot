@@ -8,20 +8,20 @@ from dotenv import load_dotenv
 AVAILABLE_TEXT_MODELS = ["gemini-2.0-flash", "gemini-2.5-pro-exp-03-25"]
 # Модель по умолчанию (Flash часто быстрее и дешевле для чата)
 DEFAULT_TEXT_MODEL = "gemini-2.0-flash"
-DEFAULT_GEMINI_TEMPERATURE = 0.7
+DEFAULT_GEMINI_TEMPERATURE = 1
 DEFAULT_GEMINI_MAX_TOKENS = 1024 # Средняя длина ответа
 
 # Допустимые значения для выбора пользователем
 ALLOWED_TEMPERATURES: Dict[str, float] = {
     "precise": 0.3,
     "balanced": 0.7,
-    "creative": 1.0,
+    "creative": 1.4,
 }
 ALLOWED_MAX_TOKENS: Dict[str, int] = {
     "short": 512,   # Уменьшил с 256 для большей полезности
     "medium": 1024,
     "long": 2048,
-    "very_long": 4096 # Увеличил для возможности больших ответов
+    "very_long": 8192 # Увеличил для возможности больших ответов
 }
 # Сопоставление числовых значений с их "именами" для отображения
 TEMPERATURE_NAMES: Dict[float, str] = {v: k for k, v in ALLOWED_TEMPERATURES.items()}

@@ -55,7 +55,7 @@ async def main():
 
     try:
         storage = MongoStorage.from_url(url=config.mongo.uri)
-        logger.info(f"Используется MongoStorage для FSM (БД из URI)")
+        logger.info("Используется MongoStorage для FSM (БД из URI)")
     except Exception as e:
         logger.critical(f"Не удалось инициализировать MongoStorage из URI: {e}", exc_info=True)
         return

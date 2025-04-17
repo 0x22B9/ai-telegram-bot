@@ -42,11 +42,11 @@ settings-prompt-max-tokens = Выберите максимальную длин�
 settings-option-default = По умолчанию ({ $value })
 settings-option-temperature-precise = 0.3 (Точный)
 settings-option-temperature-balanced = 0.7 (Сбалансированный)
-settings-option-temperature-creative = 1.0 (Креативный)
+settings-option-temperature-creative = 1.4 (Креативный)
 settings-option-max-tokens-short = 512 (Короткий)
 settings-option-max-tokens-medium = 1024 (Средний)
 settings-option-max-tokens-long = 2048 (Длинный)
-settings-option-max-tokens-very_long = 4096 (Очень длинный)
+settings-option-max-tokens-very_long = 8192 (Очень длинный)
 button-back = ⬅️ Назад
 
 # Сообщения об ошибках

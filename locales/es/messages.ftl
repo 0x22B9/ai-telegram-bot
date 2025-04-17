@@ -44,11 +44,11 @@ settings-prompt-max-tokens = Selecciona la longitud máxima de la respuesta (en 
 settings-option-default = Predeterminado ({ $value })
 settings-option-temperature-precise = 0.3 (Preciso)
 settings-option-temperature-balanced = 0.7 (Equilibrado)
-settings-option-temperature-creative = 1.0 (Creativo)
+settings-option-temperature-creative = 1.4 (Creativo)
 settings-option-max-tokens-short = 512 (Corto)
 settings-option-max-tokens-medium = 1024 (Medio)
 settings-option-max-tokens-long = 2048 (Largo)
-settings-option-max-tokens-very_long = 4096 (Muy largo)
+settings-option-max-tokens-very_long = 8192 (Muy largo)
 button-back = ⬅️ Atrás
 
 # Mensajes de error

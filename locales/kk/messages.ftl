@@ -42,11 +42,11 @@ settings-prompt-max-tokens = Жауаптың максималды ұзынды�
 settings-option-default = Әдепкі ({ $value })
 settings-option-temperature-precise = 0.3 (Дәл)
 settings-option-temperature-balanced = 0.7 (Теңгерімді)
-settings-option-temperature-creative = 1.0 (Шығармашылық)
+settings-option-temperature-creative = 1.4 (Шығармашылық)
 settings-option-max-tokens-short = 512 (Қысқа)
 settings-option-max-tokens-medium = 1024 (Орташа)
 settings-option-max-tokens-long = 2048 (Ұзын)
-settings-option-max-tokens-very_long = 4096 (Өте ұзын)
+settings-option-max-tokens-very_long = 8192 (Өте ұзын)
 button-back = ⬅️ Артқа
 
 # Қате туралы хабарламалар
