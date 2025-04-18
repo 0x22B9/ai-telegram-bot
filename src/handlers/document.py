@@ -141,15 +141,31 @@ async def handle_document_message(message: types.Message, state: FSMContext, bot
         await status_message.edit_text(final_response, reply_markup=reply_markup)
     except TelegramBadRequest as e:
         # ... (обработка ошибок парсинга и message is not modified - копипаста из text.py/audio.py) ...
-        if "message is not modified" in str(e): pass
-        elif "can't parse entities" in str(e):
-            logger.warning(f"Ошибка парсинга Markdown после обработки документа для user_id={user_id}.")
-            try: await status_message.edit_text(final_response, parse_mode=None, reply_markup=reply_markup)
-            except Exception as fallback_e: logger.error(f"Не удалось отправить ответ после док-та plain text для user_id={user_id}: {fallback_e}", exc_info=True); save_needed = False
+        if "message is not modified" in str(e):
+             logger.debug(f"Сообщение {status_message.message_id} (документ) не было изменено.")
+        elif "can't parse entities" in str(e) or "nested entities" in str(e): # Проверяем ошибки HTML
+            logger.warning(f"Ошибка парсинга HTML после обработки документа для user_id={user_id}. Отправка plain text. Error: {e}")
+            try:
+                # Отправляем очищенный, но без форматирования
+                await status_message.edit_text(final_response, parse_mode=None, reply_markup=reply_markup)
+            except Exception as fallback_e:
+                logger.error(f"Не удалось отправить ответ после док-та plain text для user_id={user_id}: {fallback_e}", exc_info=True)
+                error_msg = localizer.format_value('error-display')
+                await status_message.edit_text(error_msg)
+                save_needed = False
         else:
-            logger.error(f"Неожиданная ошибка TelegramBadRequest после док-та для user_id={user_id}: {e}", exc_info=True); save_needed = False
+             # Другие ошибки TelegramBadRequest
+            logger.error(f"Неожиданная ошибка TelegramBadRequest после док-та для user_id={user_id}: {e}", exc_info=True)
+            error_msg = localizer.format_value('error-telegram-send')
+            await status_message.edit_text(error_msg)
+            save_needed = False
+        # ----------------------------------------------------
     except Exception as e:
-        logger.error(f"Общая ошибка при ред-ии сообщения после док-та для user_id={user_id}: {e}", exc_info=True); save_needed = False
+         # Общие ошибки при редактировании сообщения
+        logger.error(f"Общая ошибка при ред-ии сообщения после док-та для user_id={user_id}: {e}", exc_info=True)
+        error_msg = localizer.format_value('error-general')
+        await status_message.edit_text(error_msg)
+        save_needed = False
 
     # Сохраняем историю, если нужно (т.е. если обработка текста была успешной)
     if save_needed and updated_history:

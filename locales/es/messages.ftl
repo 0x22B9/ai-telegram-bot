@@ -21,6 +21,8 @@ help-text =
     <b>Cómo usar:</b>
     - Simplemente envíame un mensaje de texto.
     - Envía una imagen. Puedes añadir una descripción a la imagen para hacer una pregunta específica sobre ella (p.ej., <code>"¿Qué hay de inusual en esta foto?"</code>). Si no hay descripción, simplemente la describiré.
+    - Envíame un archivo .docx, .pdf, .txt y lo analizaré.
+    - ¿No quieres escribir? ¡Solo envía un mensaje de voz y te responderé!
 
 # Procesando mensajes
 thinking = 🧠 Pensando en tu consulta...
@@ -38,6 +40,12 @@ processing-transcribed-text = 🧠 Pensando en tu solicitud a partir del audio..
 error-transcription-failed = ⚠️ No se pudo transcribir el audio: { $error }
 error-transcription-failed-unknown = ⚠️ No se pudo transcribir el audio debido a un error desconocido.
 error-processing-voice = ⚠️ Ocurrió un error al procesar tu mensaje de voz.
+
+# Procesamiento de Documentos
+error-doc-unsupported-type = ⚠️ El tipo de archivo ({ $mime_type }) no es compatible. Por favor, sube un PDF, DOCX o TXT.
+error-doc-too-large = ⚠️ El archivo es demasiado grande. Tamaño máximo: { $limit_mb } MB.
+processing-document = 📄 Procesando documento '{ $filename }'... Esto puede tomar un tiempo.
+processing-extracted-text = 🧠 Analizando texto del documento '{ $filename }'...
 
 # Modelos de IA
 model-prompt = Selecciona un modelo de IA para generar texto:
@@ -84,3 +92,11 @@ error-image-rate_limit_error = 🚦 ¡Demasiadas solicitudes! Se excedió el lí
 error-image-content_filter_error = 🙅 Solicitud rechazada por el filtro de seguridad. Intenta modificar el prompt.
 error-image-unknown = ❓ Error desconocido durante la generación de la imagen.
 error-telegram-send = 😔 No se pudo enviar la imagen generada.
+error-doc-parsing-pdf = ❌ Error al leer el archivo PDF. Puede estar dañado o encriptado.
+error-doc-parsing-docx = ❌ Error al leer el archivo DOCX. Puede estar dañado.
+error-doc-parsing-txt = ❌ Error al leer el archivo de texto (problema de codificación).
+error-doc-parsing-lib_missing = ❌ La biblioteca necesaria ({ $library }) para procesar este tipo de archivo no está instalada en el servidor.
+error-doc-parsing-emptydoc = ⚠️ El documento no contiene texto o no se pudo extraer el texto.
+error-doc-parsing-unknown = ❓ Error desconocido al extraer texto del documento.
+error-doc-processing-general = ⚠️ Ocurrió un error al procesar tu documento.
+response-truncated = [La respuesta fue truncada debido a limitaciones de longitud del mensaje]

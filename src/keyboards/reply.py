@@ -11,7 +11,7 @@ def get_main_keyboard(localizer: FluentLocalization) -> ReplyKeyboardMarkup:
     # Добавляем кнопки с текстом команд
     builder.button(text="/newchat")
     builder.button(text="/language")
-    builder.button(text="/model")
+    builder.button(text="/generate_image")
     builder.button(text="/help")
 
     # Выстраиваем кнопки в 2 ряда по 2 кнопки

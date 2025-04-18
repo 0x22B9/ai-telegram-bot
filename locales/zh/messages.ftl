@@ -21,6 +21,8 @@ help-text =
     <b>如何使用:</b>
     - 只需给我发送一条文本消息。
     - 发送一张图片。您可以为图片添加标题以提出具体问题（例如，<code>“这张图片有什么不寻常之处？”</code>）。如果没有标题，我会直接描述它。
+    - 给我发送一个 .docx、.pdf 或 .txt 文件，我会对其进行分析。
+    - 不想打字？只需发送语音消息，我会回复！
 
 # 处理消息
 thinking = 🧠 正在思考您的问题...
@@ -38,6 +40,12 @@ processing-transcribed-text = 🧠 正在思考您从音频中提出的请求...
 error-transcription-failed = ⚠️ 无法转录音频：{ $error }
 error-transcription-failed-unknown = ⚠️ 由于未知错误，无法转录音频。
 error-processing-voice = ⚠️ 处理您的语音消息时发生错误。
+
+# 文档处理
+error-doc-unsupported-type = ⚠️ 文件类型 ({ $mime_type }) 不支持。请上传 PDF、DOCX 或 TXT。
+error-doc-too-large = ⚠️ 文件过大。最大大小：{ $limit_mb } MB。
+processing-document = 📄 正在处理文档 '{ $filename }'... 这可能需要一些时间。
+processing-extracted-text = 🧠 正在分析文档 '{ $filename }' 中的文本...
 
 # 人工智能模型
 model-prompt = 选择用于生成文本的人工智能模型：
@@ -84,3 +92,11 @@ error-image-rate_limit_error = 🚦 请求过多！已超出图像生成限制�
 error-image-content_filter_error = 🙅 请求被安全过滤器拒绝。请尝试修改提示。
 error-image-unknown = ❓ 生成图像时发生未知错误。
 error-telegram-send = 😔 无法发送生成的图像。
+error-doc-parsing-pdf = ❌ 读取 PDF 文件时出错。文件可能已损坏或加密。
+error-doc-parsing-docx = ❌ 读取 DOCX 文件时出错。文件可能已损坏。
+error-doc-parsing-txt = ❌ 读取文本文件时出错（编码问题）。
+error-doc-parsing-lib_missing = ❌ 服务器上未安装处理此文件类型所需的库 ({ $library })。
+error-doc-parsing-emptydoc = ⚠️ 文档不含文本或无法提取文本。
+error-doc-parsing-unknown = ❓ 从文档中提取文本时发生未知错误。
+error-doc-processing-general = ⚠️ 处理您的文档时发生错误。
+response-truncated = [由于消息长度限制，响应已被截断]

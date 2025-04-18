@@ -10,8 +10,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.utils.keyboard import InlineKeyboardBuilder # Для кнопки Повтор
 from typing import Optional
 
-from src.services import gemini # Импортируем сервис Gemini для транскрипции
-# Импортируем вынесенную функцию обработки текста
+from src.services import gemini
 from src.handlers.text import _process_text_input, LAST_FAILED_PROMPT_KEY, RETRY_CALLBACK_DATA, send_typing_periodically
 from src.services.gemini import GEMINI_TRANSCRIPTION_ERROR, GEMINI_QUOTA_ERROR, GEMINI_API_KEY_ERROR, GEMINI_BLOCKED_ERROR # Импортируем коды ошибок транскрипции
 from src.db import save_history # Импорт для сохранения истории
@@ -111,16 +110,30 @@ async def handle_voice_message(message: types.Message, state: FSMContext, bot: B
         await status_message.edit_text(final_response, reply_markup=reply_markup)
     except TelegramBadRequest as e:
         # ... (обработка ошибок парсинга и message is not modified) ...
-        if "message is not modified" in str(e): pass
-        elif "can't parse entities" in str(e):
-            logger.warning(f"Ошибка парсинга Markdown после транскрипции для user_id={user_id}.")
-            try: await status_message.edit_text(final_response, parse_mode=None, reply_markup=reply_markup)
-            except Exception as fallback_e: logger.error(f"Не удалось отправить ответ после транскрипции plain text для user_id={user_id}: {fallback_e}", exc_info=True); save_needed = False
+        if "message is not modified" in str(e):
+             logger.debug(f"Сообщение {status_message.message_id} (аудио) не было изменено.")
+        elif "can't parse entities" in str(e) or "nested entities" in str(e): # Проверяем ошибки HTML
+            logger.warning(f"Ошибка парсинга HTML после транскрипции для user_id={user_id}. Отправка plain text. Error: {e}")
+            try:
+                await status_message.edit_text(final_response, parse_mode=None, reply_markup=reply_markup) # Отправляем без форматирования
+            except Exception as fallback_e:
+                logger.error(f"Не удалось отправить ответ после транскрипции plain text для user_id={user_id}: {fallback_e}", exc_info=True)
+                error_msg = localizer.format_value('error-display')
+                await status_message.edit_text(error_msg) # Сообщаем об ошибке отображения
+                save_needed = False # Не сохраняем, если не смогли отправить
         else:
-            logger.error(f"Неожиданная ошибка TelegramBadRequest после транскрипции для user_id={user_id}: {e}", exc_info=True); save_needed = False
+            # Другие ошибки TelegramBadRequest
+            logger.error(f"Неожиданная ошибка TelegramBadRequest после транскрипции для user_id={user_id}: {e}", exc_info=True)
+            error_msg = localizer.format_value('error-telegram-send') # Общая ошибка отправки
+            await status_message.edit_text(error_msg)
+            save_needed = False
+        # ----------------------------------------------------
     except Exception as e:
-        logger.error(f"Общая ошибка при редактировании сообщения после транскрипции для user_id={user_id}: {e}", exc_info=True); save_needed = False
-
+        # Общие ошибки при редактировании сообщения
+        logger.error(f"Общая ошибка при редактировании сообщения после транскрипции для user_id={user_id}: {e}", exc_info=True)
+        error_msg = localizer.format_value('error-general')
+        await status_message.edit_text(error_msg)
+        save_needed = False
     # Сохраняем историю, если нужно (т.е. если обработка текста была успешной)
     if save_needed and updated_history:
         await save_history(user_id, updated_history)

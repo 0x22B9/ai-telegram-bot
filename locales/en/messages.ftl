@@ -19,6 +19,8 @@ help-text =
     <b>How to use:</b>
     - Just send me a text message.
     - Send an image. You can add a caption to ask a specific question about it (e.g., <code>"What's unusual in this picture?"</code>). If there's no caption, I'll describe it.
+    - Send me a .docx, .pdf, .txt file, and I will analyze it.
+    - Don’t want to type? Just send a voice message, and I’ll respond to it!
 
 # Processing messages
 thinking = 🧠 Thinking about your question...
@@ -36,6 +38,12 @@ processing-transcribed-text = 🧠 Thinking about your request from audio...
 error-transcription-failed = ⚠️ Failed to transcribe audio: { $error }
 error-transcription-failed-unknown = ⚠️ Failed to transcribe audio due to an unknown error.
 error-processing-voice = ⚠️ An error occurred while processing your voice message.
+
+# Document Processing
+error-doc-unsupported-type = ⚠️ File type ({ $mime_type }) is not supported. Please upload PDF, DOCX, or TXT.
+error-doc-too-large = ⚠️ File is too large. Maximum size: { $limit_mb } MB.
+processing-document = 📄 Processing document '{ $filename }'... This may take a while.
+processing-extracted-text = 🧠 Analyzing text from document '{ $filename }'...
 
 # AI Models
 model-prompt = Select an AI model for text generation:
@@ -82,3 +90,11 @@ error-image-rate_limit_error = 🚦 Too many requests! Image generation limit ex
 error-image-content_filter_error = 🙅 Request rejected by safety filter. Try modifying the prompt.
 error-image-unknown = ❓ Unknown error during image generation.
 error-telegram-send = 😔 Failed to send the generated image.
+error-doc-parsing-pdf = ❌ Error reading PDF file. It may be corrupted or encrypted.
+error-doc-parsing-docx = ❌ Error reading DOCX file. It may be corrupted.
+error-doc-parsing-txt = ❌ Error reading text file (encoding issue).
+error-doc-parsing-lib_missing = ❌ Required library ({ $library }) for processing this file type is not installed on the server.
+error-doc-parsing-emptydoc = ⚠️ Document contains no text or text could not be extracted.
+error-doc-parsing-unknown = ❓ Unknown error while extracting text from the document.
+error-doc-processing-general = ⚠️ An error occurred while processing your document.
+response-truncated = [Response was truncated due to message length limitations]

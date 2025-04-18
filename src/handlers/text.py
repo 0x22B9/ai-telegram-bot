@@ -9,6 +9,7 @@ from fluent.runtime import FluentLocalization # Импорт
 from typing import List, Dict, Any, Tuple, Optional
 import asyncio
 
+from src.utils.text_processing import strip_markdown
 from src.services import gemini
 from src.db import get_history, get_user_settings, save_history 
 from src.services.gemini import ( # Импортируем константы ошибок
@@ -77,7 +78,7 @@ async def _process_text_input(
 
         # 3. Обрабатываем результат
         if response_text and not error_code:
-            final_response = response_text
+            final_response = strip_markdown(response_text)
             user_msg_hist = create_gemini_message("user", user_text)
             model_msg_hist = create_gemini_message("model", response_text)
             updated_history = current_history + [user_msg_hist, model_msg_hist]
