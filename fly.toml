@@ -1,10 +1,10 @@
-# fly.toml app configuration file generated for ai-tg-bot on 2025-04-18T21:02:14+05:00
+# fly.toml app configuration file generated for ai-telegram-bot on 2025-04-18T17:05:19Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'ai-tg-bot'
-primary_region = 'fra'
+app = 'ai-telegram-bot'
+primary_region = 'arn'
 
 [build]
 
@@ -20,3 +20,4 @@ primary_region = 'fra'
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 1024
