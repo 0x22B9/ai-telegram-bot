@@ -1,0 +1,10 @@
+services:
+  bot:
+    build: .
+    container_name: telegram-gemini-bot-local
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+      - ./locales:/app/locales
+    restart: unless-stopped
