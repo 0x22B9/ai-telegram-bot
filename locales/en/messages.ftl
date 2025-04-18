@@ -15,6 +15,7 @@ help-text =
     /language - Change the interface language
     /settings - (ONLY IF YOU KNOW WHAT YOU'RE DOING) Configure Gemini generation settings
     /help - Show this message
+    /delete_my_data - Delete all your data from the bot
 
     <b>How to use:</b>
     - Just send me a text message.
@@ -69,6 +70,14 @@ settings-option-max-tokens-medium = 1024 (Medium)
 settings-option-max-tokens-long = 2048 (Long)
 settings-option-max-tokens-very_long = 8192 (Very long)
 button-back = ⬅️ Back
+
+# Data Deletion
+confirm-delete-prompt = ⚠️ <b>Warning!</b> Are you sure you want to delete all your data (chat history, settings) from this bot? This action is irreversible.
+button-confirm-delete = Yes, delete my data
+button-cancel-delete = No, cancel
+delete-success = ✅ Your data has been successfully deleted.
+delete-error = ❌ Failed to delete your data. Please try again or contact the administrator if the issue persists.
+delete-cancelled = 👌 Data deletion cancelled.
 
 # Error messages
 error-gemini-fetch = 😔 Failed to get a response from Gemini. Please try again later.

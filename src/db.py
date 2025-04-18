@@ -171,3 +171,27 @@ async def clear_history(user_id: int):
     except Exception as e:
         logger.error(f"Непредвиденная ошибка при очистке истории для user_id={user_id}: {e}", exc_info=True)
         return False
+    
+async def delete_user_data(user_id: int) -> bool:
+    """
+    Полностью удаляет документ пользователя (включая историю и настройки) из БД.
+    Возвращает True, если документ был найден и удален, иначе False.
+    """
+    if user_data_collection is None:
+        logger.error("delete_user_data: MongoDB collection не инициализирована.")
+        return False
+    try:
+        logger.warning(f"Попытка удаления всех данных для user_id={user_id}")
+        result = await user_data_collection.delete_one({"user_id": user_id})
+        if result.deleted_count > 0:
+            logger.info(f"Все данные для user_id={user_id} успешно удалены.")
+            return True
+        else:
+            logger.info(f"Данные для user_id={user_id} не найдены для удаления.")
+            return False # Пользователя и так не было в БД
+    except OperationFailure as e:
+        logger.error(f"Ошибка MongoDB при удалении данных для user_id={user_id}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Непредвиденная ошибка при удалении данных для user_id={user_id}: {e}", exc_info=True)
+        return False

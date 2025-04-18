@@ -11,7 +11,7 @@ from src.db import connect_db, close_db
 from src.handlers import (
     common_router, text_router, image_router,
     settings_router, image_generation_router, audio_router,
-    document_router
+    document_router, privacy_router
 )
 
 logging.basicConfig(
@@ -76,6 +76,7 @@ async def main():
     dp.include_router(settings_router)
     dp.include_router(image_generation_router)
     dp.include_router(document_router)
+    dp.include_router(privacy_router)
     dp.include_router(audio_router)
     dp.include_router(image_router)
     dp.include_router(text_router)

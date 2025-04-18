@@ -17,6 +17,7 @@ help-text =
     /language - 更改界面语言
     /settings - (只有在你知道自己在做什么的情况下) 配置 Gemini 生成设置
     /help - 显示此消息
+    /delete_my_data - 从机器人中删除您的所有数据
 
     <b>如何使用:</b>
     - 只需给我发送一条文本消息。
@@ -71,6 +72,14 @@ settings-option-max-tokens-medium = 1024（中等）
 settings-option-max-tokens-long = 2048（长）
 settings-option-max-tokens-very_long = 8192（非常长）
 button-back = ⬅️ 返回
+
+# 数据删除
+confirm-delete-prompt = ⚠️ <b>警告！</b> 您确定要从此机器人中删除您的所有数据（聊天记录、设置）吗？此操作不可逆。
+button-confirm-delete = 是的，删除我的数据
+button-cancel-delete = 不，取消
+delete-success = ✅ 您的信息已成功删除。
+delete-error = ❌ 无法删除您的数据。请重试或如果问题持续存在，请联系管理员。
+delete-cancelled = 👌 数据删除已取消。
 
 # 错误消息
 error-gemini-fetch = 😔 无法从 Gemini 获取响应。请稍后再试。
