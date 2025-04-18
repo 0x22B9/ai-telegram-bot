@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.mongo import MongoStorage
 
-from src.config import config, load_config
+from src.config import config
 from src.middlewares import LanguageMiddleware
 from src.db import connect_db, close_db
 from src.handlers import (
@@ -20,36 +20,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- Функции для жизненного цикла ---
 async def on_startup(dispatcher: Dispatcher, bot: Bot):
-    """Действия при запуске бота."""
-    # Подключаемся к БД
+    """Actions when the bot starts up."""
     if not await connect_db():
-        logger.critical("Не удалось подключиться к базе данных. Бот не может полноценно работать.")
-        # Здесь можно решить, останавливать ли бота или работать без БД
-        # Например, можно поднять флаг и проверять его в хэндлерах
+        logger.critical("Cannot connect to MongoDB. Some bot features may not work.")
     else:
-        logger.info("База данных успешно подключена.")
-    # Удаляем вебхук
+        logger.info("DB succesfully connected.")
     await bot.delete_webhook(drop_pending_updates=True)
-    logger.info("Вебхук удален.")
-    logger.info("Бот запущен.")
+    logger.info("Webhook deleted. Bot started.")
 
 async def on_shutdown(dispatcher: Dispatcher):
-    """Действия при остановке бота."""
-    logger.info("Бот останавливается...")
-    # Закрываем соединение с БД
+    """Actions when the bot stops."""
+    logger.info("Bot stopping...")
     await close_db()
-    # Закрываем сессию бота (если используется storage, который требует закрытия)
     await dispatcher.storage.close()
-    logger.info("Хранилище FSM закрыто.")
-    # Сессию бота закрывать явно не нужно, если используется polling с диспетчером
-    logger.info("Бот остановлен.")
+    logger.info("FSM Storage closed. Bot stopped.")
 
-# --- Основная функция для запуска бота ---
 async def main():
     if not config:
-        logger.critical("Запуск невозможен: конфигурация не загружена.")
+        logger.critical("Bot can't start. No config found.")
         return
 
     bot = Bot(
@@ -59,9 +48,9 @@ async def main():
 
     try:
         storage = MongoStorage.from_url(url=config.mongo.uri)
-        logger.info("Используется MongoStorage для FSM (БД из URI)")
+        logger.info("Using MongoStorage for FSM (DB from URI)")
     except Exception as e:
-        logger.critical(f"Не удалось инициализировать MongoStorage из URI: {e}", exc_info=True)
+        logger.critical(f"Cannot initialize MongoStorage from URI: {e}", exc_info=True)
         return
 
     dp = Dispatcher(storage=storage)
@@ -69,9 +58,9 @@ async def main():
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
     dp.update.outer_middleware(LanguageMiddleware())
-    logger.info("Middleware языка зарегистрирован.")
+    logger.info("LanguageMiddleware() registered.")
 
-    logger.info("Подключение роутеров...")
+    logger.info("Connecting routers...")
     dp.include_router(common_router)
     dp.include_router(settings_router)
     dp.include_router(image_generation_router)
@@ -80,16 +69,16 @@ async def main():
     dp.include_router(audio_router)
     dp.include_router(image_router)
     dp.include_router(text_router)
-    logger.info("Роутеры подключены.")
+    logger.info("Routers connected.")
 
-    logger.info("Запуск polling...")
+    logger.info("Polling started...")
     try:
         await dp.start_polling(bot)
     except Exception as e:
-        logger.critical(f"Критическая ошибка во время polling: {e}", exc_info=True)
+        logger.critical(f"Critical error while polling: {e}", exc_info=True)
 
 if __name__ == '__main__':
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Бот остановлен вручную (KeyboardInterrupt/SystemExit).")
+        logger.info("Bot stopped by user (KeyboardInterrupt/SystemExit).")

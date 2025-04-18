@@ -107,3 +107,6 @@ error-doc-parsing-emptydoc = ⚠️ Document contains no text or text could not 
 error-doc-parsing-unknown = ❓ Unknown error while extracting text from the document.
 error-doc-processing-general = ⚠️ An error occurred while processing your document.
 response-truncated = [Response was truncated due to message length limitations]
+error-download-image = 😔 Could not upload your image. Please try again.
+error-image-analysis-failed = ❌ Failed to analyze the image with AI. Please try later.
+error-image-analysis-unknown = ❓ An unknown error occurred during image analysis.

@@ -109,3 +109,6 @@ error-doc-parsing-emptydoc = ⚠️ El documento no contiene texto o no se pudo 
 error-doc-parsing-unknown = ❓ Error desconocido al extraer texto del documento.
 error-doc-processing-general = ⚠️ Ocurrió un error al procesar tu documento.
 response-truncated = [La respuesta fue truncada debido a limitaciones de longitud del mensaje]
+error-download-image = 😔 No se pudo cargar tu imagen. Por favor, intenta de nuevo.
+error-image-analysis-failed = ❌ No se pudo analizar la imagen con IA. Intenta de nuevo más tarde.
+error-image-analysis-unknown = ❓ Ocurrió un error desconocido durante el análisis de la imagen.

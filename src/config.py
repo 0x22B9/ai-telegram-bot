@@ -56,8 +56,8 @@ class Config:
     
 def load_config(path: str | None = ".env") -> Config | None:
     """
-    Загружает конфигурацию из переменных окружения или .env файла.
-    Возвращает None в случае ошибки загрузки основных ключей.
+    Loads configuration from environment variables or a .env file.
+    Returns a Config object or None if required variables are missing.
     """
     load_dotenv(dotenv_path=path)
 
@@ -68,10 +68,8 @@ def load_config(path: str | None = ".env") -> Config | None:
     hf_token = os.getenv("HUGGINGFACE_API_TOKEN")
     img_model = os.getenv("IMAGE_GEN_MODEL_ID", DEFAULT_IMAGE_GEN_MODEL_ID)
     
-    # Проверяем наличие обязательных параметров
     if not all([bot_token, gemini_key, mongo_uri, mongo_db, hf_token]):
-        print("Ошибка: Не все обязательные переменные окружения найдены "
-              "(включая HUGGINGFACE_API_TOKEN).")
+        print("Error: Not all required environment variables are set.")
         return None
 
     return Config(
@@ -83,4 +81,4 @@ def load_config(path: str | None = ".env") -> Config | None:
     
 config = load_config()
 if not config:
-    print("Критическая ошибка: Не удалось загрузить конфигурацию.")
+    print("Fatal error: Cannot load config. Check .env file and environment variables.")

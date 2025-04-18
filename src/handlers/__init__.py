@@ -5,7 +5,7 @@ from .settings import settings_router
 from .image_generation import image_generation_router
 from .audio import audio_router
 from .document import document_router
-from .privacy import privacy_router # <<< ДОБАВИТЬ ИМПОРТ
+from .privacy import privacy_router
 
 __all__ = [
     "common_router",
@@ -15,5 +15,5 @@ __all__ = [
     "image_generation_router",
     "audio_router",
     "document_router",
-    "privacy_router", # <<< ДОБАВИТЬ В ЭКСПОРТ
+    "privacy_router",
 ]

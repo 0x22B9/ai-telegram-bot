@@ -109,3 +109,6 @@ error-doc-parsing-emptydoc = ⚠️ 文档不含文本或无法提取文本。
 error-doc-parsing-unknown = ❓ 从文档中提取文本时发生未知错误。
 error-doc-processing-general = ⚠️ 处理您的文档时发生错误。
 response-truncated = [由于消息长度限制，响应已被截断]
+error-download-image = 😔 无法上传您的图片。请重试。
+error-image-analysis-failed = ❌ 人工智能分析图片失败。请稍后重试。
+error-image-analysis-unknown = ❓ 图片分析时发生未知错误。
