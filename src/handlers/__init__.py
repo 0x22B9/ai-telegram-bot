@@ -3,7 +3,8 @@ from .text import text_router
 from .image import image_router
 from .settings import settings_router
 from .image_generation import image_generation_router
-from .audio import audio_router # <<< ДОБАВИТЬ ИМПОРТ АУДИО
+from .audio import audio_router
+from .document import document_router # <<< ДОБАВИТЬ ИМПОРТ ДОКУМЕНТОВ
 
 __all__ = [
     "common_router",
@@ -11,5 +12,6 @@ __all__ = [
     "image_router",
     "settings_router",
     "image_generation_router",
-    "audio_router", # <<< ДОБАВИТЬ В ЭКСПОРТ
+    "audio_router",
+    "document_router", # <<< ДОБАВИТЬ В ЭКСПОРТ
 ]
