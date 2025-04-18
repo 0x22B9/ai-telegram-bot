@@ -1,10 +1,14 @@
-# fly.toml app configuration file generated for ai-tg-bot on 2025-04-18T21:02:14+05:00
+# fly.toml app configuration file generated for ai-tg-bot on 2025-04-18T22:31:18+05:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
 app = 'ai-tg-bot'
 primary_region = 'fra'
+
+auto_stop_machines = false
+auto_start_machines = true
+min_machines_running = 1 
 
 [build]
 
