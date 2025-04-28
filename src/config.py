@@ -4,8 +4,8 @@ from typing import List, Dict, Union
 from dotenv import load_dotenv
 
 
-AVAILABLE_TEXT_MODELS = ["gemini-2.0-flash", "gemini-2.5-pro-exp-03-25"]
-DEFAULT_TEXT_MODEL = "gemini-2.0-flash"
+AVAILABLE_TEXT_MODELS = ["gemini-2.5-flash-preview-04-17", "gemini-2.5-pro-exp-03-25"]
+DEFAULT_TEXT_MODEL = "gemini-2.5-flash-preview-04-17"
 DEFAULT_GEMINI_TEMPERATURE = 1
 DEFAULT_GEMINI_MAX_TOKENS = 1024
 
@@ -22,7 +22,7 @@ ALLOWED_MAX_TOKENS: Dict[str, int] = {
 }
 TEMPERATURE_NAMES: Dict[float, str] = {v: k for k, v in ALLOWED_TEMPERATURES.items()}
 MAX_TOKENS_NAMES: Dict[int, str] = {v: k for k, v in ALLOWED_MAX_TOKENS.items()}
-VISION_MODEL = "gemini-2.0-flash"
+VISION_MODEL = "gemini-2.5-flash-preview-04-17"
 DEFAULT_IMAGE_GEN_MODEL_ID = "stabilityai/stable-diffusion-3-medium-diffusers"
 
 @dataclass

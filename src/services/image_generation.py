@@ -1,8 +1,14 @@
 import logging
 import io
+import asyncio
 from PIL import Image
 from huggingface_hub import InferenceClient
 from huggingface_hub.utils import HfHubHTTPError
+from requests.exceptions import Timeout as RequestsTimeout
+try:
+    from huggingface_hub.errors import InferenceTimeoutError
+except ImportError:
+    InferenceTimeoutError = None
 from typing import Tuple, Optional
 
 from src.config import config
@@ -15,11 +21,12 @@ IMAGE_GEN_TIMEOUT_ERROR = "IMAGE_GEN_TIMEOUT_ERROR"
 IMAGE_GEN_RATE_LIMIT_ERROR = "IMAGE_GEN_RATE_LIMIT_ERROR"
 IMAGE_GEN_CONTENT_FILTER_ERROR = "IMAGE_GEN_CONTENT_FILTER_ERROR"
 IMAGE_GEN_UNKNOWN_ERROR = "IMAGE_GEN_UNKNOWN_ERROR"
+IMAGE_GEN_CONNECTION_ERROR = "IMAGE_GEN_CONNECTION_ERROR"
 
 hf_client: Optional[InferenceClient] = None
 if config and config.hf and config.hf.api_token:
     try:
-        hf_client = InferenceClient(token=config.hf.api_token)
+        hf_client = InferenceClient(token=config.hf.api_token, timeout=60)
         logger.info("Hugging Face InferenceClient initialized.")
     except Exception as e:
         logger.error(f"Cannot initialize Hugging Face InferenceClient: {e}")
@@ -39,7 +46,11 @@ async def generate_image_from_prompt(prompt: str) -> Tuple[Optional[bytes], str]
     logger.info(f"Requesting image generation with model '{model_id}'. Prompt: {prompt[:50]}...")
 
     try:
-        image: Image.Image = hf_client.text_to_image(prompt, model=model_id)
+        loop = asyncio.get_running_loop()
+        image: Image.Image = await loop.run_in_executor(
+            None,
+            lambda: hf_client.text_to_image(prompt, model=model_id)
+        )
 
         img_byte_arr = io.BytesIO()
         image.save(img_byte_arr, format='PNG')
@@ -51,7 +62,8 @@ async def generate_image_from_prompt(prompt: str) -> Tuple[Optional[bytes], str]
     except HfHubHTTPError as e:
         status_code = e.response.status_code
         error_message = str(e)
-        logger.error(f"HTTP error {status_code} from Hugging Face API ({model_id}): {error_message}", exc_info=False)
+        error_details = e.response.text[:200] if e.response else "No response details"
+        logger.error(f"HTTP error {status_code} from Hugging Face API ({model_id}): {error_message}. Details: {error_details}", exc_info=False)
         if status_code == 429:
             return None, IMAGE_GEN_RATE_LIMIT_ERROR
         elif status_code == 503 and "estimated_time" in error_message:
@@ -60,7 +72,12 @@ async def generate_image_from_prompt(prompt: str) -> Tuple[Optional[bytes], str]
             return None, IMAGE_GEN_CONTENT_FILTER_ERROR
         else:
             return None, IMAGE_GEN_API_ERROR
-
+    except (InferenceTimeoutError, RequestsTimeout) as e:
+        logger.warning(f"Timeout error during image generation with model ({model_id}): {e}", exc_info=False)
+        return None, IMAGE_GEN_TIMEOUT_ERROR
+    except ConnectionError as e:
+         logger.error(f"Connection error during image generation with model ({model_id}): {e}", exc_info=True)
+         return None, IMAGE_GEN_CONNECTION_ERROR
     except Exception as e:
         logger.error(f"Unexpected error while generating image with model ({model_id}): {e}", exc_info=True)
         if "timeout" in str(e).lower():

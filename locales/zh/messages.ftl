@@ -55,6 +55,11 @@ model-chosen = 人工智能模型已设置为：{ $model_name }
 # 创建新聊天
 newchat-started = ✨ 好的，我们开始一个新对话！我已经忘记了之前的上下文。
 
+# AI 提示
+prompt-analyze-document = 请用简体中文分析文档 '{ $filename }' 中的文本：
+prompt-describe-image-default = 请用简体中文描述这张图片。
+response-text-truncated-for-ai = [... 由于长度限制，发送给 AI 前文本已被截断 ...]
+
 # 键盘
 main-keyboard-placeholder = 请选择指令或输入文本…
 button-retry-request = 🔁 重试请求？
@@ -112,3 +117,13 @@ response-truncated = [由于消息长度限制，响应已被截断]
 error-download-image = 😔 无法上传您的图片。请重试。
 error-image-analysis-failed = ❌ 人工智能分析图片失败。请稍后重试。
 error-image-analysis-unknown = ❓ 图片分析时发生未知错误。
+error-gemini-api-key-invalid = 🔑 错误：Gemini API 密钥无效或已被吊销。请检查配置。
+error-gemini-service-unavailable = ☁️ Gemini 服务暂时不可用。请稍后再试。
+error-gemini-unknown = ❓ 发生未知的 Gemini API 错误（{ $type }）。请联系管理员。
+error-image-connection-error = 🌐 无法连接到图像生成服务。请检查网络或稍后再试。
+error-telegram-download = 😔 无法从 Telegram 下载文件。请重新发送。
+error-telegram-upload = 😔 无法上传文件/照片到 Telegram。
+error-db-save = 💾 无法将数据保存到数据库。设置或历史记录可能未更新。
+error-telegram-network = 🌐 连接 Telegram 时发生网络错误。请检查您的网络或稍后再试。
+error-message-deleted = 🤷 我回复的那条消息似乎已被删除。
+delete-not-found = 似乎没有与您的账户关联的数据可供删除。

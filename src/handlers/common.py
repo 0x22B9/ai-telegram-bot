@@ -3,13 +3,14 @@ from aiogram.filters import CommandStart, Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from fluent.runtime import FluentLocalization
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 import logging
 
 from src.localization import SUPPORTED_LOCALES, get_localizer, LOCALIZATIONS
 from src.db import clear_history
-from src.config import AVAILABLE_TEXT_MODELS
+from src.config import AVAILABLE_TEXT_MODELS, DEFAULT_TEXT_MODEL
 from src.keyboards import get_main_keyboard
+from src.services.errors import format_error_message, DATABASE_SAVE_ERROR, TELEGRAM_MESSAGE_DELETED_ERROR
 
 common_router = Router()
 logger = logging.getLogger(__name__)
@@ -70,25 +71,32 @@ async def handle_language_selection(callback_query: types.CallbackQuery, state: 
 
     try:
         keyboard = get_main_keyboard(new_localizer)
+        await callback_query.bot.send_message(chat_id=user_id, text=welcome_message, reply_markup=keyboard)
         if callback_query.message:
-            await callback_query.message.answer(welcome_message, reply_markup=keyboard)
-        else:
-            await callback_query.bot.send_message(chat_id=user_id, text=welcome_message, reply_markup=keyboard)
+            try:
+                await callback_query.message.delete()
+            except TelegramBadRequest as e_del:
+                 if "message to delete not found" in str(e_del).lower():
+                      logger.warning(f"Lang select: Message {callback_query.message.message_id} already deleted.")
+                 else:
+                      logger.error(f"Lang select: Error deleting message {callback_query.message.message_id}: {e_del}")
+            except TelegramNetworkError as e_net:
+                 logger.error(f"Lang select: Network error deleting message: {e_net}")
+            except Exception as e_unexp:
+                 logger.error(f"Lang select: Unexpected error deleting message: {e_unexp}", exc_info=True)
 
-        if callback_query.message:
-            await callback_query.message.delete()
+    except (TelegramNetworkError, TelegramBadRequest) as e_send:
+        logger.error(f"Lang select: Error sending welcome message for user {user_id}: {e_send}")
+    except Exception as e_unexp_send:
+         logger.error(f"Lang select: Unexpected error sending welcome message for user {user_id}: {e_unexp_send}", exc_info=True)
 
-    except TelegramBadRequest as e:
-        logger.error(f"Error while sending/deleting message for user_id={user_id}: {e}")
-    except Exception as e:
-        logger.error(f"Unexpected error while sending/deleting message for user_id={user_id}: {e}", exc_info=True)
 
 @common_router.message(Command("model"))
 async def handle_model_command(message: types.Message, state: FSMContext, localizer: FluentLocalization):
     """/model command handler. Allows user to select a model for text generation."""
     builder = InlineKeyboardBuilder()
     user_data = await state.get_data()
-    current_model = user_data.get("selected_model")
+    current_model = user_data.get("selected_model", DEFAULT_TEXT_MODEL)
 
     for model_name in AVAILABLE_TEXT_MODELS:
         button_text = f"✅ {model_name}" if model_name == current_model else model_name
@@ -96,7 +104,6 @@ async def handle_model_command(message: types.Message, state: FSMContext, locali
     builder.adjust(1)
 
     prompt_text = localizer.format_value('model-prompt')
-    keyboard = get_main_keyboard(localizer)
     await message.answer(prompt_text, reply_markup=builder.as_markup())
 
 @common_router.callback_query(F.data.startswith("model_select:"))
@@ -121,38 +128,59 @@ async def handle_model_selection(callback_query: types.CallbackQuery, state: FSM
     response_text = current_localizer.format_value('model-chosen', args={"model_name": selected_model})
 
     try:
-        if callback_query.message:
-             await callback_query.message.answer(response_text)
-        else:
-             await callback_query.bot.send_message(chat_id=user_id, text=response_text)
+        await callback_query.bot.send_message(chat_id=user_id, text=response_text)
 
         if callback_query.message:
-            await callback_query.message.delete()
+            try:
+                await callback_query.message.delete()
+            except TelegramBadRequest as e_del:
+                 if "message to delete not found" in str(e_del).lower():
+                      logger.warning(f"Model select: Message {callback_query.message.message_id} already deleted.")
+                 else:
+                      logger.error(f"Model select: Error deleting message {callback_query.message.message_id}: {e_del}")
+            except TelegramNetworkError as e_net:
+                 logger.error(f"Model select: Network error deleting message: {e_net}")
+            except Exception as e_unexp:
+                 logger.error(f"Model select: Unexpected error deleting message: {e_unexp}", exc_info=True)
 
-    except TelegramBadRequest as e:
-        logger.error(f"Error while sending/deleting message for user_id={user_id}: {e}")
-    except Exception as e:
-        logger.error(f"Unexpected error while sending/deleting message for user_id={user_id}: {e}", exc_info=True)
+    except (TelegramNetworkError, TelegramBadRequest) as e_send:
+         logger.error(f"Model select: Error sending confirmation for user {user_id}: {e_send}")
+    except Exception as e_unexp_send:
+         logger.error(f"Model select: Unexpected error sending confirmation for user {user_id}: {e_unexp_send}", exc_info=True)
         
+
 @common_router.message(Command("newchat"))
 async def handle_new_chat(message: types.Message, localizer: FluentLocalization):
     """/newchat command handler. Clears the user's chat history."""
     user_id = message.from_user.id
+    keyboard = get_main_keyboard(localizer)
     success = await clear_history(user_id)
 
-    if success:
-        response_text = localizer.format_value("newchat-started")
-        logger.info(f"User {user_id} started a new chat.")
-    else:
-        response_text = localizer.format_value("error-general")
-        logger.error(f"Can't start a new chat for user {user_id}.")
+    try:
+        success = await clear_history(user_id)
+        if success:
+            response_text = localizer.format_value("newchat-started")
+            logger.info(f"User {user_id} started a new chat.")
+        else:
+            response_text, _ = format_error_message(DATABASE_SAVE_ERROR, localizer)
+            logger.error(f"Failed to clear history (clear_history returned False) for user {user_id}.")
 
-    keyboard = get_main_keyboard(localizer)
-    await message.answer(response_text, reply_markup=keyboard)
+    except Exception as e:
+         logger.exception(f"Unexpected error during /newchat for user {user_id}: {e}")
+         response_text, _ = format_error_message(None, localizer)
+
+    try:
+         await message.answer(response_text, reply_markup=keyboard)
+    except Exception as e_send:
+          logger.error(f"NewChat: Could not send response to user {user_id}: {e_send}")
+
 
 @common_router.message(Command("help"))
 async def handle_help(message: types.Message, localizer: FluentLocalization):
-    """/help command handler. Sends a help message."""
+    """/help command handler."""
     help_text = localizer.format_value('help-text')
     keyboard = get_main_keyboard(localizer)
-    await message.answer(help_text, reply_markup=keyboard)
+    try:
+         await message.answer(help_text, reply_markup=keyboard)
+    except Exception as e_send:
+         logger.error(f"Help: Could not send help message to user {message.from_user.id}: {e_send}")

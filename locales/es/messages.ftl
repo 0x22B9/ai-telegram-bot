@@ -55,6 +55,11 @@ model-chosen = El modelo de IA se ha establecido en: { $model_name }
 # Creación de un nuevo chat
 newchat-started = ✨ ¡Bien, empecemos un nuevo diálogo! He olvidado el contexto anterior.
 
+# Indicaciones para IA
+prompt-analyze-document = Analiza el texto de este documento '{ $filename }' en español:
+prompt-describe-image-default = Describe esta imagen en español.
+response-text-truncated-for-ai = [... Texto truncado antes de enviarlo a la IA debido a los límites de longitud ...]
+
 # Teclado
 main-keyboard-placeholder = Seleccione un comando o escriba un texto...
 button-retry-request = 🔁 ¿Reintentar solicitud?
@@ -112,3 +117,13 @@ response-truncated = [La respuesta fue truncada debido a limitaciones de longitu
 error-download-image = 😔 No se pudo cargar tu imagen. Por favor, intenta de nuevo.
 error-image-analysis-failed = ❌ No se pudo analizar la imagen con IA. Intenta de nuevo más tarde.
 error-image-analysis-unknown = ❓ Ocurrió un error desconocido durante el análisis de la imagen.
+error-gemini-api-key-invalid = 🔑 Error: Clave de API de Gemini inválida o revocada. Verifica la configuración.
+error-gemini-service-unavailable = ☁️ El servicio de Gemini está temporalmente fuera de servicio. Por favor, inténtalo de nuevo más tarde.
+error-gemini-unknown = ❓ Se produjo un error desconocido de la API de Gemini ({ $type }). Contacta al administrador.
+error-image-connection-error = 🌐 No se pudo conectar al servicio de generación de imágenes. Verifica la red o inténtalo más tarde.
+error-telegram-download = 😔 No se pudo descargar el archivo de Telegram. Por favor, envíalo de nuevo.
+error-telegram-upload = 😔 No se pudo subir el archivo/la foto a Telegram.
+error-db-save = 💾 No se pudieron guardar los datos en la base de datos. Es posible que la configuración o el historial no se hayan actualizado.
+error-telegram-network = 🌐 Error de red al conectar con Telegram. Por favor, comprueba tu conexión o inténtalo de nuevo más tarde.
+error-message-deleted = 🤷 Parece que el mensaje al que respondía ha sido eliminado.
+delete-not-found = Parece que no había datos asociados a tu cuenta para eliminar.

@@ -1,7 +1,7 @@
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Tuple
 import motor.motor_asyncio
-from pymongo.errors import ConnectionFailure, OperationFailure
+from pymongo.errors import ConnectionFailure, OperationFailure, NetworkTimeout, ServerSelectionTimeoutError
 
 from src.config import config, DEFAULT_GEMINI_TEMPERATURE, DEFAULT_GEMINI_MAX_TOKENS
 
@@ -21,15 +21,18 @@ async def connect_db():
     if mongo_client is None:
         logger.info(f"Connecting to MongoDB: {config.mongo.uri}")
         try:
-            mongo_client = motor.motor_asyncio.AsyncIOMotorClient(config.mongo.uri)
+            mongo_client = motor.motor_asyncio.AsyncIOMotorClient(
+                config.mongo.uri,
+                serverSelectionTimeoutMS=5000
+            )
             await mongo_client.admin.command('ping')
             db = mongo_client[config.mongo.db_name]
             user_data_collection = db["user_data"]
             await user_data_collection.create_index("user_id", unique=True)
             logger.info(f"Successfully connected to MongoDB, DB: {config.mongo.db_name}, collection: user_data")
             return True
-        except ConnectionFailure as e:
-            logger.critical(f"Cannot connect to MongoDB: {e}", exc_info=True)
+        except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+            logger.critical(f"Cannot connect to MongoDB (ConnectionFailure or Timeout): {e}", exc_info=True)
             mongo_client = None
             db = None
             user_data_collection = None
@@ -63,8 +66,8 @@ async def get_history(user_id: int) -> List[Dict[str, Any]]:
             projection={"history": 1, "_id": 0}
         )
         return doc.get("history", []) if doc else []
-    except OperationFailure as e:
-        logger.error(f"Error MongoDB while getting history for user_id={user_id}: {e}")
+    except (OperationFailure, NetworkTimeout) as e:
+        logger.error(f"MongoDB OperationFailure or NetworkTimeout while getting history for user_id={user_id}: {e}")
         return []
     except Exception as e:
         logger.error(f"Unexpected error while getting history for user_id={user_id}: {e}", exc_info=True)
@@ -90,8 +93,8 @@ async def get_user_settings(user_id: int) -> Tuple[float, int]:
             return temperature, max_tokens
         else:
             return DEFAULT_GEMINI_TEMPERATURE, DEFAULT_GEMINI_MAX_TOKENS
-    except OperationFailure as e:
-        logger.error(f"Error MongoDB while getting settings for user_id={user_id}: {e}")
+    except (OperationFailure, NetworkTimeout) as e:
+        logger.error(f"Error MongoDB while getting settings (OperationFailure or NetworkTimeout) for user_id={user_id}: {e}")
         return DEFAULT_GEMINI_TEMPERATURE, DEFAULT_GEMINI_MAX_TOKENS
     except Exception as e:
         logger.error(f"Unexpected error while getting settings for user_id={user_id}: {e}", exc_info=True)
@@ -113,7 +116,7 @@ async def save_user_setting(user_id: int, setting_name: str, setting_value: Any)
         )
         logger.info(f"Setting '{setting_name}' for user_id={user_id} saved/updated with value {setting_value}.")
         return True
-    except OperationFailure as e:
+    except (OperationFailure, NetworkTimeout) as e:
         logger.error(f"Error MongoDB while saving setting '{setting_name}' for user_id={user_id}: {e}")
         return False
     except Exception as e:
@@ -133,7 +136,7 @@ async def save_history(user_id: int, history: List[Dict[str, Any]]):
         )
         logger.debug(f"History for user_id={user_id} saved/updated.")
         return True
-    except OperationFailure as e:
+    except (OperationFailure, NetworkTimeout) as e:
         logger.error(f"Error MongoDB while saving history for user_id={user_id}: {e}")
         return False
     except Exception as e:
@@ -152,7 +155,7 @@ async def clear_history(user_id: int):
         )
         logger.info(f"History for user_id={user_id} cleared. Affected documents: {result.modified_count}")
         return True
-    except OperationFailure as e:
+    except (OperationFailure, NetworkTimeout) as e:
         logger.error(f"Error MongoDB while clearing history for user_id={user_id}: {e}")
         return False
     except Exception as e:
@@ -176,7 +179,7 @@ async def delete_user_data(user_id: int) -> bool:
         else:
             logger.info(f"Data for deletion for user_id={user_id} is not found.")
             return False
-    except OperationFailure as e:
+    except (OperationFailure, NetworkTimeout) as e:
         logger.error(f"Error MongoDB while deleting data for user_id={user_id}: {e}")
         return False
     except Exception as e:

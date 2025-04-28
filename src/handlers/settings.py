@@ -1,9 +1,11 @@
 import logging
+import asyncio # Для sleep
 from aiogram import Router, F, types
 from aiogram.filters import Command
 from typing import Union
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from fluent.runtime import FluentLocalization
+from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError, TelegramRetryAfter
 
 from src.db import get_user_settings, save_user_setting
 from src.config import (
@@ -12,6 +14,7 @@ from src.config import (
     DEFAULT_GEMINI_TEMPERATURE, DEFAULT_GEMINI_MAX_TOKENS
 )
 from src.keyboards import get_main_keyboard
+from src.services.errors import format_error_message, DATABASE_SAVE_ERROR, TELEGRAM_MESSAGE_DELETED_ERROR, TELEGRAM_NETWORK_ERROR
 
 logger = logging.getLogger(__name__)
 settings_router = Router()
@@ -31,30 +34,59 @@ async def build_settings_keyboard(user_id: int, localizer: FluentLocalization) -
     builder.adjust(1)
     return builder
 
+
+async def _edit_settings_message(message: types.Message, text: str, markup: types.InlineKeyboardMarkup, localizer: FluentLocalization):
+    """Вспомогательная функция для редактирования сообщения с обработкой ошибок."""
+    try:
+        await message.edit_text(text, reply_markup=markup, parse_mode=None)
+    except TelegramRetryAfter as e:
+        logger.warning(f"Settings: Flood control editing settings for user {message.chat.id}: retry after {e.retry_after}s")
+        await asyncio.sleep(e.retry_after)
+        try: await message.edit_text(text, reply_markup=markup, parse_mode=None)
+        except Exception: pass
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e).lower():
+             logger.debug(f"Settings: Message {message.message_id} not modified.")
+        elif "message to edit not found" in str(e).lower():
+             logger.warning(f"Settings: Message {message.message_id} not found.")
+        else:
+             logger.error(f"Settings: Error editing message {message.message_id}: {e}")
+    except TelegramNetworkError as e_net:
+         logger.error(f"Settings: Network error editing message {message.message_id}: {e_net}")
+    except Exception as e_unexp:
+         logger.error(f"Settings: Unexpected error editing message {message.message_id}: {e_unexp}", exc_info=True)
+
+
 @settings_router.message(Command("settings"))
 async def handle_settings_command(message: types.Message, localizer: FluentLocalization):
     """Shows settings keyboard."""
     user_id = message.from_user.id
-    keyboard = await build_settings_keyboard(user_id, localizer)
-    settings_text = localizer.format_value("settings-current-prompt")
-    main_reply_keyboard = get_main_keyboard(localizer)
-    await message.answer(settings_text, reply_markup=keyboard.as_markup(), parse_mode=None)
+    try:
+        keyboard = await build_settings_keyboard(user_id, localizer)
+        settings_text = localizer.format_value("settings-current-prompt")
+        await message.answer(settings_text, reply_markup=keyboard.as_markup(), parse_mode=None)
+    except Exception as e:
+         logger.error(f"Settings: Error sending settings message for user {user_id}: {e}", exc_info=True)
+         await message.answer(localizer.format_value('error-general'))
+
 
 @settings_router.callback_query(F.data == "settings:show")
 async def cq_show_settings(callback: types.CallbackQuery, localizer: FluentLocalization):
     """Shows settings keyboard (after pressing 'back')."""
     user_id = callback.from_user.id
+    if not callback.message: return
+
     keyboard = await build_settings_keyboard(user_id, localizer)
     settings_text = localizer.format_value("settings-current-prompt")
-    try:
-        await callback.message.edit_text(settings_text, reply_markup=keyboard.as_markup(), parse_mode=None)
-    except Exception as e:
-        logger.error(f"Error while editing message for settings (user_id={user_id}): {e}")
-    await callback.answer()
+    await _edit_settings_message(callback.message, settings_text, keyboard.as_markup(), localizer)
+    try: await callback.answer()
+    except Exception: pass
+
 
 @settings_router.callback_query(F.data.startswith("settings:set:"))
 async def cq_set_parameter(callback: types.CallbackQuery, localizer: FluentLocalization):
     """Shows options for setting a parameter."""
+    if not callback.message: return
     try:
         parameter = callback.data.split(":")[2]
     except IndexError:
@@ -108,16 +140,15 @@ async def cq_set_parameter(callback: types.CallbackQuery, localizer: FluentLocal
     builder.button(text=back_button_text, callback_data="settings:show")
     builder.adjust(1)
 
-    try:
-        await callback.message.edit_text(prompt_text, reply_markup=builder.as_markup(), parse_mode=None)
-    except Exception as e:
-        logger.error(f"Error while editing message for settings {parameter} (user_id={user_id}): {e}")
-    await callback.answer()
+    await _edit_settings_message(callback.message, prompt_text, builder.as_markup(), localizer)
+    try: await callback.answer()
+    except Exception: pass
 
 
 @settings_router.callback_query(F.data.startswith("settings:value:"))
 async def cq_save_value(callback: types.CallbackQuery, localizer: FluentLocalization):
     """Saves selected value and returns to settings."""
+    if not callback.message: return
     try:
         parts = callback.data.split(":")
         parameter = parts[2]
@@ -131,6 +162,7 @@ async def cq_save_value(callback: types.CallbackQuery, localizer: FluentLocaliza
     setting_saved = False
     db_field_name = ""
     final_value: Union[float, int, None] = None
+    error_text = ""
 
     if parameter == "temperature":
         db_field_name = "gemini_temperature"
@@ -161,10 +193,20 @@ async def cq_save_value(callback: types.CallbackQuery, localizer: FluentLocaliza
         return
 
     if final_value is not None:
-        setting_saved = await save_user_setting(user_id, db_field_name, final_value)
+        try:
+            setting_saved = await save_user_setting(user_id, db_field_name, final_value)
+            if not setting_saved:
+                 logger.error(f"Settings: save_user_setting returned False for user {user_id}, field {db_field_name}")
+                 error_text, _ = format_error_message(DATABASE_SAVE_ERROR, localizer)
+        except Exception as e_db:
+             logger.exception(f"Settings: Error saving setting for user {user_id} to DB: {e_db}")
+             error_text, _ = format_error_message(DATABASE_SAVE_ERROR, localizer)
 
     if setting_saved:
         await cq_show_settings(callback, localizer)
     else:
-        error_text = localizer.format_value("error-settings-save")
-        await callback.answer(error_text, show_alert=True)
+        final_error_text = error_text or localizer.format_value("error-settings-save")
+        try:
+            await callback.answer(final_error_text, show_alert=True)
+        except Exception as e_ans:
+             logger.warning(f"Settings: Could not answer callback with error for user {user_id}: {e_ans}")

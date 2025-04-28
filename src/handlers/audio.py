@@ -5,14 +5,23 @@ from aiogram import Router, F, types, Bot
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from fluent.runtime import FluentLocalization
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError, TelegramRetryAfter
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from typing import Optional
 
 from src.services import gemini
-from src.handlers.text import _process_text_input, LAST_FAILED_PROMPT_KEY, RETRY_CALLBACK_DATA, send_typing_periodically
+
+from src.handlers.text import (
+    _process_text_input, LAST_FAILED_PROMPT_KEY, RETRY_CALLBACK_DATA,
+    send_typing_periodically, create_gemini_message
+)
+from src.services.errors import (
+    format_error_message, TELEGRAM_DOWNLOAD_ERROR, TELEGRAM_NETWORK_ERROR,
+    DATABASE_SAVE_ERROR, TELEGRAM_MESSAGE_DELETED_ERROR
+)
 from src.services.gemini import GEMINI_TRANSCRIPTION_ERROR, GEMINI_QUOTA_ERROR, GEMINI_API_KEY_ERROR, GEMINI_BLOCKED_ERROR
-from src.db import save_history
+from src.db import save_history, get_history
+from src.keyboards import get_main_keyboard
 
 logger = logging.getLogger(__name__)
 audio_router = Router()
@@ -34,50 +43,75 @@ async def handle_voice_message(message: types.Message, state: FSMContext, bot: B
     updated_history = None
     failed_prompt_for_retry = None
     save_needed = False
+    download_error = False
 
     try:
         voice = message.voice
         audio_bytes_io = io.BytesIO()
-        await bot.download(file=voice, destination=audio_bytes_io)
-        audio_bytes = audio_bytes_io.getvalue()
-        logger.debug(f"Audio downloaded ({len(audio_bytes)} byte), mime_type={voice.mime_type}")
+        try:
+            logger.debug(f"Downloading voice {voice.file_id}...")
+            await bot.download(file=voice, destination=audio_bytes_io)
+            audio_bytes = audio_bytes_io.getvalue()
+            logger.debug(f"Audio downloaded ({len(audio_bytes)} bytes), mime_type={voice.mime_type}")
 
-        transcribed_text, transcription_error_code = await gemini.transcribe_audio(
-            audio_bytes=audio_bytes,
-            mime_type=voice.mime_type
-        )
+            if not audio_bytes:
+                raise ValueError("Downloaded audio bytes are empty.")
 
-        if transcribed_text and not transcription_error_code:
-            logger.info(f"Transcribing for user_id={user_id}: {transcribed_text[:100]}...")
-            processing_text_status = localizer.format_value("processing-transcribed-text")
-            await status_message.edit_text(processing_text_status)
+        except (TelegramNetworkError, TelegramBadRequest, Exception) as e:
+            logger.error(f"Failed to download voice {voice.file_id} for user {user_id}: {e}", exc_info=True)
+            final_response, _ = format_error_message(TELEGRAM_DOWNLOAD_ERROR, localizer)
+            download_error = True
 
-            final_response, updated_history, failed_prompt_for_retry = await _process_text_input(
-                user_text=transcribed_text,
-                user_id=user_id,
-                state=state,
-                localizer=localizer
+        if not download_error:
+            transcribed_text, transcription_error_code = await gemini.transcribe_audio(
+                audio_bytes=audio_bytes,
+                mime_type=voice.mime_type
             )
-            save_needed = updated_history is not None and not failed_prompt_for_retry
-        else:
-            logger.warning(f"Error transcription for user_id={user_id}: {transcription_error_code}")
-            if transcription_error_code == GEMINI_QUOTA_ERROR:
-                final_response = localizer.format_value('error-quota-exceeded')
-            elif transcription_error_code == GEMINI_API_KEY_ERROR:
-                final_response = localizer.format_value('error-gemini-api-key')
-            elif transcription_error_code and transcription_error_code.startswith(GEMINI_BLOCKED_ERROR):
-                 reason = transcription_error_code.split(":", 1)[1] if ":" in transcription_error_code else "Unknown Error"
-                 final_response = localizer.format_value('error-blocked-content', args={'reason': reason})
-            elif transcription_error_code and transcription_error_code.startswith(GEMINI_TRANSCRIPTION_ERROR):
-                 error_detail = transcription_error_code.split(":", 1)[1] if ":" in transcription_error_code else "Unknown Error"
-                 final_response = localizer.format_value('error-transcription-failed', args={'error': error_detail})
+
+            if transcribed_text and not transcription_error_code:
+                logger.info(f"Transcribed for user_id={user_id}: {transcribed_text[:100]}...")
+                processing_text_status = localizer.format_value("processing-transcribed-text")
+                try:
+                     await status_message.edit_text(processing_text_status)
+                except TelegramBadRequest as e_edit:
+                     if "message to edit not found" not in str(e_edit).lower():
+                          logger.warning(f"Could not edit status message for transcription: {e_edit}")
+                except Exception as e_edit_unexp:
+                     logger.warning(f"Unexpected error editing status message: {e_edit_unexp}")
+
+
+                final_response, updated_history, failed_prompt_for_retry = await _process_text_input(
+                    user_text=transcribed_text,
+                    user_id=user_id,
+                    state=state,
+                    localizer=localizer
+                )
+                save_needed = updated_history is not None and failed_prompt_for_retry is None
+
+            elif transcription_error_code:
+                logger.warning(f"Transcription error for user_id={user_id}: {transcription_error_code}")
+                final_response, needs_retry = format_error_message(transcription_error_code, localizer)
+                if needs_retry:
+                     pass
+                if transcription_error_code.startswith(GEMINI_BLOCKED_ERROR):
+                      user_msg_hist = create_gemini_message("user", "[Audio message - transcription blocked]")
+                      current_history = await get_history(user_id)
+                      updated_history = current_history + [user_msg_hist]
+                      save_needed = True 
+                else:
+                      save_needed = False
             else:
-                 final_response = localizer.format_value('error-transcription-failed-unknown')
+                 logger.error(f"Unexpected result from transcribe_audio for user_id={user_id}: no text, no error")
+                 final_response, _ = format_error_message(None, localizer)
+                 save_needed = False
 
     except Exception as e:
-        logger.error(f"Error while processing voice message for user_id={user_id}: {e}", exc_info=True)
-        final_response = localizer.format_value("error-processing-voice")
+        logger.exception(f"Critical error in voice handler logic for user_id={user_id}: {e}")
+        final_response, _ = format_error_message(None, localizer)
+        save_needed = False
+        failed_prompt_for_retry = None
     finally:
+        audio_bytes_io.close()
         if typing_task and not typing_task.done():
             typing_task.cancel()
             try: await asyncio.wait_for(typing_task, timeout=0.1)
@@ -92,29 +126,64 @@ async def handle_voice_message(message: types.Message, state: FSMContext, bot: B
         reply_markup = builder.as_markup()
         save_needed = False
 
+    message_sent_or_edited = False
     try:
         await status_message.edit_text(final_response, reply_markup=reply_markup)
+        message_sent_or_edited = True
+    except TelegramRetryAfter as e:
+        logger.warning(f"Audio Handler: Flood control exceeded for user {user_id}: retry after {e.retry_after}s")
+        await asyncio.sleep(e.retry_after)
+        try:
+             await status_message.edit_text(final_response, reply_markup=reply_markup)
+             message_sent_or_edited = True
+        except Exception as retry_e:
+             logger.error(f"Audio Handler: Failed to edit message even after RetryAfter for user {user_id}: {retry_e}")
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
-             logger.debug(f"Message {status_message.message_id} (audio) was not modified.")
+             logger.debug(f"Audio Handler: Message {status_message.message_id} is not modified.")
+             message_sent_or_edited = True
+        elif "message to edit not found" in str(e).lower():
+             logger.warning(f"Audio Handler: Message {status_message.message_id} to edit not found for user {user_id}. Sending new message.")
+             try:
+                  main_kbd = get_main_keyboard(localizer)
+                  await message.answer(final_response, reply_markup=reply_markup or main_kbd)
+                  message_sent_or_edited = True
+             except Exception as send_e:
+                  logger.error(f"Audio Handler: Failed to send new message after edit failed for user {user_id}: {send_e}")
         elif "can't parse entities" in str(e) or "nested entities" in str(e):
-            logger.warning(f"Parsing error after transcription for user_id={user_id}. Sending plain text. Error: {e}")
+            logger.warning(f"Audio Handler: Parse error for user_id={user_id}. Sending plain text. Error: {e}")
             try:
                 await status_message.edit_text(final_response, parse_mode=None, reply_markup=reply_markup)
+                message_sent_or_edited = True
             except Exception as fallback_e:
-                logger.error(f"Can't send text after transcription plain text for user_id={user_id}: {fallback_e}", exc_info=True)
-                error_msg = localizer.format_value('error-display')
-                await status_message.edit_text(error_msg)
-                save_needed = False
+                logger.error(f"Audio Handler: Failed to send plain text for user_id={user_id}: {fallback_e}", exc_info=True)
+                try: await status_message.edit_text(localizer.format_value('error-display'))
+                except Exception: pass
         else:
-            logger.error(f"Unexpected error TelegramBadRequest after transcription for user_id={user_id}: {e}", exc_info=True)
-            error_msg = localizer.format_value('error-telegram-send')
-            await status_message.edit_text(error_msg)
-            save_needed = False
+            logger.error(f"Audio Handler: Unexpected TelegramBadRequest for user_id={user_id}: {e}", exc_info=True)
+            try: await status_message.edit_text(localizer.format_value('error-telegram-send'))
+            except Exception: pass
+    except TelegramNetworkError as e:
+         logger.error(f"Audio Handler: Network error while editing message for user {user_id}: {e}")
+         try:
+              err_msg_net, _ = format_error_message(TELEGRAM_NETWORK_ERROR, localizer)
+              await status_message.edit_text(err_msg_net)
+         except Exception: pass
     except Exception as e:
-        logger.error(f"General error while editing message after transcription for user_id={user_id}: {e}", exc_info=True)
-        error_msg = localizer.format_value('error-general')
-        await status_message.edit_text(error_msg)
-        save_needed = False
-    if save_needed and updated_history:
-        await save_history(user_id, updated_history)
+        logger.exception(f"Audio Handler: Failed to edit final response for user_id={user_id}: {e}")
+        try:
+            await status_message.edit_text(localizer.format_value('error-general'))
+        except Exception: pass
+
+    if save_needed and updated_history is not None and message_sent_or_edited:
+        try:
+            await save_history(user_id, updated_history)
+        except Exception as db_save_e:
+            logger.exception(f"Audio Handler: Failed to save history for user_id={user_id} to DB: {db_save_e}")
+            try:
+                 err_msg_db, _ = format_error_message(DATABASE_SAVE_ERROR, localizer)
+                 await message.answer(err_msg_db)
+            except Exception as db_err_send_e:
+                 logger.error(f"Audio Handler: Failed to send DB save error message to user {user_id}: {db_err_send_e}")
+    elif save_needed and updated_history is None:
+         logger.error(f"Audio Handler: save_needed is True, but updated_history is None for user_id={user_id}!")

@@ -53,6 +53,11 @@ model-chosen = AI model set to: { $model_name }
 # Creating a new chat
 newchat-started = ✨ Alright, let's start a new conversation! I've forgotten the previous context.
 
+# Prompts for AI
+prompt-analyze-document = Analyze the text from this document '{ $filename }':
+prompt-describe-image-default = Describe this image.
+response-text-truncated-for-ai = [... Text truncated before sending to AI due to length limits ...]
+
 # Keyboard
 main-keyboard-placeholder = Select a command or enter text...
 button-retry-request = 🔁 Retry request?
@@ -110,3 +115,13 @@ response-truncated = [Response was truncated due to message length limitations]
 error-download-image = 😔 Could not upload your image. Please try again.
 error-image-analysis-failed = ❌ Failed to analyze the image with AI. Please try later.
 error-image-analysis-unknown = ❓ An unknown error occurred during image analysis.
+error-gemini-api-key-invalid = 🔑 Error: Invalid or revoked Gemini API key. Check configuration.
+error-gemini-service-unavailable = ☁️ Gemini service is temporarily unavailable. Please try again later.
+error-gemini-unknown = ❓ An unknown Gemini API error occurred ({ $type }). Contact administrator.
+error-image-connection-error = 🌐 Could not connect to the image generation service. Check network or try later.
+error-telegram-download = 😔 Failed to download the file from Telegram. Please try sending it again.
+error-telegram-upload = 😔 Failed to upload the file/photo to Telegram.
+error-db-save = 💾 Could not save data to the database. Settings or history might not be updated.
+error-telegram-network = 🌐 Network error connecting to Telegram. Please check your connection or try again later.
+error-message-deleted = 🤷 The message I was replying to seems to have been deleted.
+delete-not-found = It seems there was no data associated with your account to remove.

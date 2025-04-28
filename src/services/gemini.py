@@ -26,7 +26,7 @@ safety_settings = {
     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
 }
 
-AUDIO_TRANSCRIPTION_MODEL = "gemini-2.0-flash"
+AUDIO_TRANSCRIPTION_MODEL = "gemini-2.5-flash-preview-04-17"
 
 GEMINI_QUOTA_ERROR = "GEMINI_QUOTA_ERROR"
 GEMINI_API_KEY_ERROR = "GEMINI_API_KEY_ERROR"
@@ -34,6 +34,9 @@ GEMINI_BLOCKED_ERROR = "GEMINI_BLOCKED_ERROR"
 GEMINI_REQUEST_ERROR = "GEMINI_REQUEST_ERROR"
 IMAGE_ANALYSIS_ERROR = "IMAGE_ANALYSIS_ERROR"
 GEMINI_TRANSCRIPTION_ERROR = "GEMINI_TRANSCRIPTION_ERROR"
+GEMINI_API_KEY_INVALID = "GEMINI_API_KEY_INVALID"
+GEMINI_SERVICE_UNAVAILABLE = "GEMINI_SERVICE_UNAVAILABLE"
+GEMINI_UNKNOWN_API_ERROR = "GEMINI_UNKNOWN_API_ERROR"
 
 async def transcribe_audio(audio_bytes: bytes, mime_type: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
     """
@@ -70,29 +73,31 @@ async def transcribe_audio(audio_bytes: bytes, mime_type: Optional[str] = None) 
 
         transcribed_text = response.text
         logger.info(f"Audio succesfully transcribed ({len(transcribed_text)} symbols).")
-
-        try:
-            genai.delete_file(audio_file.name)
-            logger.info(f"Loaded audiofile {audio_file.name} deleted.")
-        except Exception as delete_err:
-            logger.warning(f"Cannot delete audiofile {audio_file.name}: {delete_err}")
-
-
         return transcribed_text, None
 
+    except api_core_exceptions.PermissionDenied as e:
+        logger.error(f"Permission denied during audio transcription ({AUDIO_TRANSCRIPTION_MODEL}). Invalid API Key? Error: {e}", exc_info=False)
+        return None, GEMINI_API_KEY_INVALID
     except api_core_exceptions.ResourceExhausted as e:
         logger.error(f"Quota exceeded while transcribing audio ({AUDIO_TRANSCRIPTION_MODEL}): {e}", exc_info=False)
-        if 'audio_file' in locals() and audio_file:
-             try: genai.delete_file(audio_file.name)
-             except Exception: pass
         return None, GEMINI_QUOTA_ERROR
+    except api_core_exceptions.ServiceUnavailable as e:
+        logger.warning(f"Service unavailable during audio transcription ({AUDIO_TRANSCRIPTION_MODEL}): {e}", exc_info=False)
+        return None, GEMINI_SERVICE_UNAVAILABLE
+    except api_core_exceptions.GoogleAPIError as e:
+        logger.error(f"Google API error during audio transcription ({AUDIO_TRANSCRIPTION_MODEL}): {e}", exc_info=True)
+        return None, f"{GEMINI_UNKNOWN_API_ERROR}:{type(e).__name__}"
     except Exception as e:
-        logger.error(f"Error transcribing audiofile ({AUDIO_TRANSCRIPTION_MODEL}): {e}", exc_info=True)
+        logger.error(f"Unexpected error transcribing audio ({AUDIO_TRANSCRIPTION_MODEL}): {e}", exc_info=True)
+        return None, f"{GEMINI_TRANSCRIPTION_ERROR}:{type(e).__name__}"
+    finally:
         if 'audio_file' in locals() and audio_file:
-             try: genai.delete_file(audio_file.name)
-             except Exception: pass
+            try:
+                genai.delete_file(audio_file.name)
+                logger.info(f"Uploaded audio file {audio_file.name} deleted in finally block.")
+            except Exception as delete_err:
+                logger.warning(f"Could not delete audio file {audio_file.name} in finally block: {delete_err}")
 
-        return None, f"{GEMINI_TRANSCRIPTION_ERROR}:{e}"
 
 async def generate_text_with_history(
     history: List[Dict[str, Any]],
@@ -113,16 +118,16 @@ async def generate_text_with_history(
         config_params_set = False
         if temperature is not None:
             if 0.0 <= temperature <= 1.0:
-                 generation_config['temperature'] = temperature
-                 config_params_set = True
+                generation_config['temperature'] = temperature
+                config_params_set = True
             else:
-                 logger.warning(f"Incorrect value for temperature ({temperature}), using default value from API.")
+                logger.warning(f"Incorrect value for temperature ({temperature}), using default value from API.")
         if max_output_tokens is not None:
              if max_output_tokens > 0:
-                 generation_config['max_output_tokens'] = max_output_tokens
-                 config_params_set = True
+                generation_config['max_output_tokens'] = max_output_tokens
+                config_params_set = True
              else:
-                 logger.warning(f"Incorrect value for max_output_tokens ({max_output_tokens}), using default value from API.")
+                logger.warning(f"Incorrect value for max_output_tokens ({max_output_tokens}), using default value from API.")
 
         logger.debug(f"Generation config: {generation_config if config_params_set else 'Default API settings'}")
 
@@ -143,24 +148,37 @@ async def generate_text_with_history(
         )
 
         if not response.parts:
-             block_reason = response.prompt_feedback.block_reason.name if response.prompt_feedback else "Unknown block reason"
-             logger.warning(f"Responce from Gemini blocked(context). Reason: {block_reason}")
-             return None, f"{GEMINI_BLOCKED_ERROR}:{block_reason}"
+            block_reason = response.prompt_feedback.block_reason.name if response.prompt_feedback else "Unknown block reason"
+            logger.warning(f"Responce from Gemini blocked(context). Reason: {block_reason}")
+            return None, f"{GEMINI_BLOCKED_ERROR}:{block_reason}"
 
         return response.text, None
 
+    except api_core_exceptions.PermissionDenied as e:
+        logger.error(f"Permission denied during text generation ({model_name}). Invalid API Key? Error: {e}", exc_info=False)
+        return None, GEMINI_API_KEY_INVALID
     except api_core_exceptions.ResourceExhausted as e:
-        logger.error(f"Ошибка квоты Gemini ({model_name}): {e}", exc_info=False)
+        logger.error(f"Quota exceeded during text generation ({model_name}): {e}", exc_info=False)
         return None, GEMINI_QUOTA_ERROR
+    except api_core_exceptions.ServiceUnavailable as e:
+        logger.warning(f"Service unavailable during text generation ({model_name}): {e}", exc_info=False)
+        return None, GEMINI_SERVICE_UNAVAILABLE
+    except api_core_exceptions.InvalidArgument as e:
+        logger.error(f"Invalid argument during text generation ({model_name}): {e}", exc_info=True)
+        return None, f"{GEMINI_REQUEST_ERROR}:InvalidArgument"
+    except api_core_exceptions.GoogleAPIError as e:
+        logger.error(f"Google API error during text generation ({model_name}): {e}", exc_info=True)
+        return None, f"{GEMINI_UNKNOWN_API_ERROR}:{type(e).__name__}"
     except Exception as e:
         if "429" in str(e) and "quota" in str(e).lower():
-             logger.error(f"Found error similar to quota, in general Exception ({model_name}): {e}", exc_info=False)
-             return None, GEMINI_QUOTA_ERROR
+            logger.error(f"Quota-like error caught in generic Exception ({model_name}): {e}", exc_info=False)
+            return None, GEMINI_QUOTA_ERROR
         else:
-             logger.error(f"Text generation error from Gemini ({model_name}): {e}", exc_info=True)
-             return None, f"{GEMINI_REQUEST_ERROR}:{e}"
+            logger.error(f"Unexpected error during text generation ({model_name}): {e}", exc_info=True)
+            return None, f"{GEMINI_REQUEST_ERROR}:{type(e).__name__}"
 
-async def analyze_image(image_bytes: bytes, prompt: str) -> str | None:
+
+async def analyze_image(image_bytes: bytes, prompt: str) -> Tuple[str | None, str | None]:
     """
     Analyzes image using the Gemini API.
     Returns image description, error code or None.
@@ -175,19 +193,31 @@ async def analyze_image(image_bytes: bytes, prompt: str) -> str | None:
         response = await model.generate_content_async([prompt, img], safety_settings=safety_settings)
 
         if not response.parts:
-             block_reason = response.prompt_feedback.block_reason.name if response.prompt_feedback else "Unknown block reason"
-             logger.warning(f"Responce from Gemini ({VISION_MODEL}) blocked. Reason: {block_reason}")
-             return None, f"{IMAGE_ANALYSIS_ERROR}:InvalidImageData"
+            block_reason = response.prompt_feedback.block_reason.name if response.prompt_feedback else "Unknown block reason"
+            logger.warning(f"Responce from Gemini ({VISION_MODEL}) blocked. Reason: {block_reason}")
+            return None, f"{IMAGE_ANALYSIS_ERROR}:InvalidImageData"
 
         return response.text, None
 
-    except api_core_exceptions.ResourceExhausted as e: # Ловим ошибку 429 (квота)
-        logger.error(f"Quota exceeded while analyzing image ({VISION_MODEL}): {e}", exc_info=False)
+    except api_core_exceptions.PermissionDenied as e:
+        logger.error(f"Permission denied during image analysis ({VISION_MODEL}). Invalid API Key? Error: {e}", exc_info=False)
+        return None, GEMINI_API_KEY_INVALID
+    except api_core_exceptions.ResourceExhausted as e:
+        logger.error(f"Quota exceeded during image analysis ({VISION_MODEL}): {e}", exc_info=False)
         return None, GEMINI_QUOTA_ERROR
-    except Exception as e: # Ловим остальные ошибки
+    except api_core_exceptions.ServiceUnavailable as e:
+        logger.warning(f"Service unavailable during image analysis ({VISION_MODEL}): {e}", exc_info=False)
+        return None, GEMINI_SERVICE_UNAVAILABLE
+    except (api_core_exceptions.InvalidArgument, ValueError) as e:
+        logger.error(f"Invalid argument or image format during image analysis ({VISION_MODEL}): {e}", exc_info=True)
+        return None, f"{IMAGE_ANALYSIS_ERROR}:InvalidData"
+    except api_core_exceptions.GoogleAPIError as e:
+        logger.error(f"Google API error during image analysis ({VISION_MODEL}): {e}", exc_info=True)
+        return None, f"{GEMINI_UNKNOWN_API_ERROR}:{type(e).__name__}"
+    except Exception as e:
         if "429" in str(e) and "quota" in str(e).lower():
-             logger.error(f"Found error similar to quota, in general Exception ({VISION_MODEL}): {e}", exc_info=False)
-             return None, GEMINI_QUOTA_ERROR
+            logger.error(f"Quota-like error caught in generic Exception ({VISION_MODEL}): {e}", exc_info=False)
+            return None, GEMINI_QUOTA_ERROR
         else:
-             logger.error(f"Error analyzing image with Gemini ({VISION_MODEL}): {e}", exc_info=True)
-             return None, f"{IMAGE_ANALYSIS_ERROR}:{e}"
+            logger.error(f"Unexpected error during image analysis ({VISION_MODEL}): {e}", exc_info=True)
+            return None, f"{IMAGE_ANALYSIS_ERROR}:{type(e).__name__}"
