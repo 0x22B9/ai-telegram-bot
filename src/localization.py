@@ -14,14 +14,15 @@ LOCALIZATIONS: Dict[str, FluentLocalization] = {
     for locale in SUPPORTED_LOCALES
 }
 
+
 def get_localizer(locale: str | None = None) -> FluentLocalization:
     """Returns object of FluentLocalization with appropriate or default locale."""
     effective_locale = locale if locale in LOCALIZATIONS else DEFAULT_LOCALE
     return LOCALIZATIONS.get(effective_locale, LOCALIZATIONS[DEFAULT_LOCALE])
 
+
 def get_i18n_args(
-    user_locale: str | None = None,
-    default_locale: str = DEFAULT_LOCALE
+    user_locale: str | None = None, default_locale: str = DEFAULT_LOCALE
 ) -> Tuple[FluentLocalization, str]:
     """Returns object of FluentLocalization and code language for using in handlers."""
     actual_locale = user_locale if user_locale in SUPPORTED_LOCALES else default_locale

@@ -1,24 +1,39 @@
-from fluent.runtime import FluentLocalization
-from typing import Tuple, Optional, Dict, Any
 import logging
+from typing import Any, Dict, Optional, Tuple
 
+from fluent.runtime import FluentLocalization
+
+from .document_parser import (
+    PARSING_EMPTY_DOC,
+    PARSING_ERROR_DOCX,
+    PARSING_ERROR_PDF,
+    PARSING_ERROR_TXT,
+    PARSING_LIB_MISSING,
+    PARSING_SUCCESS,
+    PARSING_UNSUPPORTED_TYPE,
+)
 from .gemini import (
-    GEMINI_QUOTA_ERROR, GEMINI_API_KEY_ERROR, GEMINI_BLOCKED_ERROR,
-    GEMINI_REQUEST_ERROR, IMAGE_ANALYSIS_ERROR, GEMINI_TRANSCRIPTION_ERROR,
-    GEMINI_API_KEY_INVALID, GEMINI_SERVICE_UNAVAILABLE, GEMINI_UNKNOWN_API_ERROR
+    GEMINI_API_KEY_ERROR,
+    GEMINI_API_KEY_INVALID,
+    GEMINI_BLOCKED_ERROR,
+    GEMINI_QUOTA_ERROR,
+    GEMINI_REQUEST_ERROR,
+    GEMINI_SERVICE_UNAVAILABLE,
+    GEMINI_TRANSCRIPTION_ERROR,
+    GEMINI_UNKNOWN_API_ERROR,
+    IMAGE_ANALYSIS_ERROR,
 )
 from .image_generation import (
-    IMAGE_GEN_SUCCESS, IMAGE_GEN_API_ERROR, IMAGE_GEN_TIMEOUT_ERROR,
-    IMAGE_GEN_RATE_LIMIT_ERROR, IMAGE_GEN_CONTENT_FILTER_ERROR,
-    IMAGE_GEN_UNKNOWN_ERROR, IMAGE_GEN_CONNECTION_ERROR
-)
-from .document_parser import (
-    PARSING_SUCCESS, PARSING_UNSUPPORTED_TYPE, PARSING_ERROR_PDF,
-    PARSING_ERROR_DOCX, PARSING_ERROR_TXT, PARSING_LIB_MISSING,
-    PARSING_EMPTY_DOC
+    IMAGE_GEN_API_ERROR,
+    IMAGE_GEN_CONNECTION_ERROR,
+    IMAGE_GEN_CONTENT_FILTER_ERROR,
+    IMAGE_GEN_RATE_LIMIT_ERROR,
+    IMAGE_GEN_SUCCESS,
+    IMAGE_GEN_TIMEOUT_ERROR,
+    IMAGE_GEN_UNKNOWN_ERROR,
 )
 
-DEFAULT_ERROR_KEY = 'error-general'
+DEFAULT_ERROR_KEY = "error-general"
 FTL_ARGS_SEPARATOR = "|"
 
 TELEGRAM_DOWNLOAD_ERROR = "TELEGRAM_DOWNLOAD_ERROR"
@@ -40,46 +55,42 @@ RETRYABLE_ERRORS = {
 }
 
 ERROR_CODE_TO_FTL_KEY: Dict[str, str] = {
-    GEMINI_QUOTA_ERROR: 'error-quota-exceeded',
-    GEMINI_API_KEY_ERROR: 'error-gemini-api-key',
-    GEMINI_API_KEY_INVALID: 'error-gemini-api-key-invalid',
-    GEMINI_BLOCKED_ERROR: 'error-blocked-content',
-    GEMINI_REQUEST_ERROR: 'error-gemini-request',
-    GEMINI_SERVICE_UNAVAILABLE: 'error-gemini-service-unavailable',
-    GEMINI_UNKNOWN_API_ERROR: 'error-gemini-unknown',
-
-    IMAGE_ANALYSIS_ERROR: 'error-image-analysis-failed',
-
-    GEMINI_TRANSCRIPTION_ERROR: 'error-transcription-failed',
-
-    IMAGE_GEN_API_ERROR: 'error-image-api_error',
-    IMAGE_GEN_TIMEOUT_ERROR: 'error-image-timeout_error',
-    IMAGE_GEN_RATE_LIMIT_ERROR: 'error-image-rate_limit_error',
-    IMAGE_GEN_CONTENT_FILTER_ERROR: 'error-image-content_filter_error',
-    IMAGE_GEN_CONNECTION_ERROR: 'error-image-connection-error',
-    IMAGE_GEN_UNKNOWN_ERROR: 'error-image-unknown',
-
-    PARSING_UNSUPPORTED_TYPE: 'error-doc-unsupported-type',
-    PARSING_ERROR_PDF: 'error-doc-parsing-pdf',
-    PARSING_ERROR_DOCX: 'error-doc-parsing-docx',
-    PARSING_ERROR_TXT: 'error-doc-parsing-txt',
-    PARSING_LIB_MISSING: 'error-doc-parsing-lib_missing',
-    PARSING_EMPTY_DOC: 'error-doc-parsing-emptydoc',
-    PARSING_ERROR_UNKNOWN: 'error-doc-parsing-unknown',
-
-    TELEGRAM_DOWNLOAD_ERROR: 'error-telegram-download',
-    TELEGRAM_UPLOAD_ERROR: 'error-telegram-upload',
-    TELEGRAM_NETWORK_ERROR: 'error-telegram-network',
-    TELEGRAM_MESSAGE_DELETED_ERROR: 'error-message-deleted',
-    DATABASE_SAVE_ERROR: 'error-db-save',
+    GEMINI_QUOTA_ERROR: "error-quota-exceeded",
+    GEMINI_API_KEY_ERROR: "error-gemini-api-key",
+    GEMINI_API_KEY_INVALID: "error-gemini-api-key-invalid",
+    GEMINI_BLOCKED_ERROR: "error-blocked-content",
+    GEMINI_REQUEST_ERROR: "error-gemini-request",
+    GEMINI_SERVICE_UNAVAILABLE: "error-gemini-service-unavailable",
+    GEMINI_UNKNOWN_API_ERROR: "error-gemini-unknown",
+    IMAGE_ANALYSIS_ERROR: "error-image-analysis-failed",
+    GEMINI_TRANSCRIPTION_ERROR: "error-transcription-failed",
+    IMAGE_GEN_API_ERROR: "error-image-api_error",
+    IMAGE_GEN_TIMEOUT_ERROR: "error-image-timeout_error",
+    IMAGE_GEN_RATE_LIMIT_ERROR: "error-image-rate_limit_error",
+    IMAGE_GEN_CONTENT_FILTER_ERROR: "error-image-content_filter_error",
+    IMAGE_GEN_CONNECTION_ERROR: "error-image-connection-error",
+    IMAGE_GEN_UNKNOWN_ERROR: "error-image-unknown",
+    PARSING_UNSUPPORTED_TYPE: "error-doc-unsupported-type",
+    PARSING_ERROR_PDF: "error-doc-parsing-pdf",
+    PARSING_ERROR_DOCX: "error-doc-parsing-docx",
+    PARSING_ERROR_TXT: "error-doc-parsing-txt",
+    PARSING_LIB_MISSING: "error-doc-parsing-lib_missing",
+    PARSING_EMPTY_DOC: "error-doc-parsing-emptydoc",
+    PARSING_ERROR_UNKNOWN: "error-doc-parsing-unknown",
+    TELEGRAM_DOWNLOAD_ERROR: "error-telegram-download",
+    TELEGRAM_UPLOAD_ERROR: "error-telegram-upload",
+    TELEGRAM_NETWORK_ERROR: "error-telegram-network",
+    TELEGRAM_MESSAGE_DELETED_ERROR: "error-message-deleted",
+    DATABASE_SAVE_ERROR: "error-db-save",
 }
 
 logger = logging.getLogger(__name__)
 
+
 def format_error_message(
     error_code_with_details: Optional[str],
     localizer: FluentLocalization,
-    default_fallback_key: str = DEFAULT_ERROR_KEY
+    default_fallback_key: str = DEFAULT_ERROR_KEY,
 ) -> Tuple[str, bool]:
     """
     Formats an error message to the user based on the error code.
@@ -120,20 +131,22 @@ def format_error_message(
 
     if ftl_args is None:
         if base_error_code == GEMINI_BLOCKED_ERROR and details:
-            ftl_args = {'reason': details}
+            ftl_args = {"reason": details}
         elif base_error_code == GEMINI_REQUEST_ERROR and details:
-            ftl_args = {'error': details}
+            ftl_args = {"error": details}
         elif base_error_code == IMAGE_ANALYSIS_ERROR and details:
-             ftl_args = {'error': details}
+            ftl_args = {"error": details}
         elif base_error_code == GEMINI_TRANSCRIPTION_ERROR and details:
-             ftl_args = {'error': details}
+            ftl_args = {"error": details}
         elif base_error_code == PARSING_LIB_MISSING and details:
-             ftl_args = {'library': details}
+            ftl_args = {"library": details}
 
     try:
         message = localizer.format_value(ftl_key, args=ftl_args)
     except Exception as format_exc:
-        logger.warning(f"Could not format FTL key '{ftl_key}' with args {ftl_args} (Error: {format_exc}). Falling back to default '{default_fallback_key}'.")
+        logger.warning(
+            f"Could not format FTL key '{ftl_key}' with args {ftl_args} (Error: {format_exc}). Falling back to default '{default_fallback_key}'."
+        )
         message = localizer.format_value(default_fallback_key)
 
     return message, needs_retry

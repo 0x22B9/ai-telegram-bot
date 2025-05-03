@@ -1,15 +1,22 @@
 import logging
-from typing import List, Dict, Any, Tuple
-import motor.motor_asyncio
-from pymongo.errors import ConnectionFailure, OperationFailure, NetworkTimeout, ServerSelectionTimeoutError
+from typing import Any, Dict, List, Tuple
 
-from src.config import config, DEFAULT_GEMINI_TEMPERATURE, DEFAULT_GEMINI_MAX_TOKENS
+import motor.motor_asyncio
+from pymongo.errors import (
+    ConnectionFailure,
+    NetworkTimeout,
+    OperationFailure,
+    ServerSelectionTimeoutError,
+)
+
+from src.config import DEFAULT_GEMINI_MAX_TOKENS, DEFAULT_GEMINI_TEMPERATURE, config
 
 logger = logging.getLogger(__name__)
 
 mongo_client: motor.motor_asyncio.AsyncIOMotorClient | None = None
 db: motor.motor_asyncio.AsyncIOMotorDatabase | None = None
 user_data_collection: motor.motor_asyncio.AsyncIOMotorCollection | None = None
+
 
 async def connect_db():
     """Inits connection to MongoDB."""
@@ -22,28 +29,35 @@ async def connect_db():
         logger.info(f"Connecting to MongoDB: {config.mongo.uri}")
         try:
             mongo_client = motor.motor_asyncio.AsyncIOMotorClient(
-                config.mongo.uri,
-                serverSelectionTimeoutMS=5000
+                config.mongo.uri, serverSelectionTimeoutMS=5000
             )
-            await mongo_client.admin.command('ping')
+            await mongo_client.admin.command("ping")
             db = mongo_client[config.mongo.db_name]
             user_data_collection = db["user_data"]
             await user_data_collection.create_index("user_id", unique=True)
-            logger.info(f"Successfully connected to MongoDB, DB: {config.mongo.db_name}, collection: user_data")
+            logger.info(
+                f"Successfully connected to MongoDB, DB: {config.mongo.db_name}, collection: user_data"
+            )
             return True
         except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-            logger.critical(f"Cannot connect to MongoDB (ConnectionFailure or Timeout): {e}", exc_info=True)
+            logger.critical(
+                f"Cannot connect to MongoDB (ConnectionFailure or Timeout): {e}",
+                exc_info=True,
+            )
             mongo_client = None
             db = None
             user_data_collection = None
             return False
         except Exception as e:
-            logger.critical(f"Unexpected error while connecting to MongoDB: {e}", exc_info=True)
+            logger.critical(
+                f"Unexpected error while connecting to MongoDB: {e}", exc_info=True
+            )
             mongo_client = None
             db = None
             user_data_collection = None
             return False
     return True
+
 
 async def close_db():
     """Closes connection to MongoDB."""
@@ -55,6 +69,7 @@ async def close_db():
         user_data_collection = None
         logger.info("Closed connection to MongoDB.")
 
+
 async def get_history(user_id: int) -> List[Dict[str, Any]]:
     """Extracts only the history field for the user."""
     if user_data_collection is None:
@@ -62,16 +77,21 @@ async def get_history(user_id: int) -> List[Dict[str, Any]]:
         return []
     try:
         doc = await user_data_collection.find_one(
-            {"user_id": user_id},
-            projection={"history": 1, "_id": 0}
+            {"user_id": user_id}, projection={"history": 1, "_id": 0}
         )
         return doc.get("history", []) if doc else []
     except (OperationFailure, NetworkTimeout) as e:
-        logger.error(f"MongoDB OperationFailure or NetworkTimeout while getting history for user_id={user_id}: {e}")
+        logger.error(
+            f"MongoDB OperationFailure or NetworkTimeout while getting history for user_id={user_id}: {e}"
+        )
         return []
     except Exception as e:
-        logger.error(f"Unexpected error while getting history for user_id={user_id}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error while getting history for user_id={user_id}: {e}",
+            exc_info=True,
+        )
         return []
+
 
 async def get_user_settings(user_id: int) -> Tuple[float, int]:
     """
@@ -85,7 +105,7 @@ async def get_user_settings(user_id: int) -> Tuple[float, int]:
     try:
         doc = await user_data_collection.find_one(
             {"user_id": user_id},
-            projection={"gemini_temperature": 1, "gemini_max_tokens": 1, "_id": 0}
+            projection={"gemini_temperature": 1, "gemini_max_tokens": 1, "_id": 0},
         )
         if doc:
             temperature = doc.get("gemini_temperature", DEFAULT_GEMINI_TEMPERATURE)
@@ -94,11 +114,17 @@ async def get_user_settings(user_id: int) -> Tuple[float, int]:
         else:
             return DEFAULT_GEMINI_TEMPERATURE, DEFAULT_GEMINI_MAX_TOKENS
     except (OperationFailure, NetworkTimeout) as e:
-        logger.error(f"Error MongoDB while getting settings (OperationFailure or NetworkTimeout) for user_id={user_id}: {e}")
+        logger.error(
+            f"Error MongoDB while getting settings (OperationFailure or NetworkTimeout) for user_id={user_id}: {e}"
+        )
         return DEFAULT_GEMINI_TEMPERATURE, DEFAULT_GEMINI_MAX_TOKENS
     except Exception as e:
-        logger.error(f"Unexpected error while getting settings for user_id={user_id}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error while getting settings for user_id={user_id}: {e}",
+            exc_info=True,
+        )
         return DEFAULT_GEMINI_TEMPERATURE, DEFAULT_GEMINI_MAX_TOKENS
+
 
 async def save_user_setting(user_id: int, setting_name: str, setting_value: Any):
     """Saves (updating) one setting for user."""
@@ -106,22 +132,32 @@ async def save_user_setting(user_id: int, setting_name: str, setting_value: Any)
         logger.error("save_user_setting: MongoDB collection isn't initialized.")
         return False
     if setting_name not in ["gemini_temperature", "gemini_max_tokens"]:
-        logger.error(f"Trying to save unknown setting '{setting_name}' for user_id={user_id}")
+        logger.error(
+            f"Trying to save unknown setting '{setting_name}' for user_id={user_id}"
+        )
         return False
     try:
         await user_data_collection.update_one(
             {"user_id": user_id},
             {"$set": {setting_name: setting_value, "user_id": user_id}},
-            upsert=True
+            upsert=True,
         )
-        logger.info(f"Setting '{setting_name}' for user_id={user_id} saved/updated with value {setting_value}.")
+        logger.info(
+            f"Setting '{setting_name}' for user_id={user_id} saved/updated with value {setting_value}."
+        )
         return True
     except (OperationFailure, NetworkTimeout) as e:
-        logger.error(f"Error MongoDB while saving setting '{setting_name}' for user_id={user_id}: {e}")
+        logger.error(
+            f"Error MongoDB while saving setting '{setting_name}' for user_id={user_id}: {e}"
+        )
         return False
     except Exception as e:
-        logger.error(f"Unexpected error while saving setting '{setting_name}' for user_id={user_id}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error while saving setting '{setting_name}' for user_id={user_id}: {e}",
+            exc_info=True,
+        )
         return False
+
 
 async def save_history(user_id: int, history: List[Dict[str, Any]]):
     """Saves (updating) ONLY chat history for user."""
@@ -132,7 +168,7 @@ async def save_history(user_id: int, history: List[Dict[str, Any]]):
         await user_data_collection.update_one(
             {"user_id": user_id},
             {"$set": {"history": history, "user_id": user_id}},
-            upsert=True
+            upsert=True,
         )
         logger.debug(f"History for user_id={user_id} saved/updated.")
         return True
@@ -140,8 +176,12 @@ async def save_history(user_id: int, history: List[Dict[str, Any]]):
         logger.error(f"Error MongoDB while saving history for user_id={user_id}: {e}")
         return False
     except Exception as e:
-        logger.error(f"Unexpected error while saving history for user_id={user_id}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error while saving history for user_id={user_id}: {e}",
+            exc_info=True,
+        )
         return False
+
 
 async def clear_history(user_id: int):
     """Clear ONLY chat history for user (settings are not affected)."""
@@ -150,18 +190,23 @@ async def clear_history(user_id: int):
         return False
     try:
         result = await user_data_collection.update_one(
-            {"user_id": user_id},
-            {"$set": {"history": []}}
+            {"user_id": user_id}, {"$set": {"history": []}}
         )
-        logger.info(f"History for user_id={user_id} cleared. Affected documents: {result.modified_count}")
+        logger.info(
+            f"History for user_id={user_id} cleared. Affected documents: {result.modified_count}"
+        )
         return True
     except (OperationFailure, NetworkTimeout) as e:
         logger.error(f"Error MongoDB while clearing history for user_id={user_id}: {e}")
         return False
     except Exception as e:
-        logger.error(f"Unexpected error while clearing history for user_id={user_id}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error while clearing history for user_id={user_id}: {e}",
+            exc_info=True,
+        )
         return False
-    
+
+
 async def delete_user_data(user_id: int) -> bool:
     """
     Completely deletes the user’s document (including history and settings) from the DB.
@@ -183,5 +228,8 @@ async def delete_user_data(user_id: int) -> bool:
         logger.error(f"Error MongoDB while deleting data for user_id={user_id}: {e}")
         return False
     except Exception as e:
-        logger.error(f"Unexpected error while deleting data for user_id={user_id}: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error while deleting data for user_id={user_id}: {e}",
+            exc_info=True,
+        )
         return False

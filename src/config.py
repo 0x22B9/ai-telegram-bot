@@ -1,8 +1,8 @@
 import os
 from dataclasses import dataclass, field
-from typing import List, Dict, Union
-from dotenv import load_dotenv
+from typing import Dict
 
+from dotenv import load_dotenv
 
 AVAILABLE_TEXT_MODELS = ["gemini-2.5-flash-preview-04-17", "gemini-2.5-pro-exp-03-25"]
 DEFAULT_TEXT_MODEL = "gemini-2.5-flash-preview-04-17"
@@ -18,34 +18,43 @@ ALLOWED_MAX_TOKENS: Dict[str, int] = {
     "short": 512,
     "medium": 1024,
     "long": 2048,
-    "very_long": 8192
+    "very_long": 8192,
 }
 TEMPERATURE_NAMES: Dict[float, str] = {v: k for k, v in ALLOWED_TEMPERATURES.items()}
 MAX_TOKENS_NAMES: Dict[int, str] = {v: k for k, v in ALLOWED_MAX_TOKENS.items()}
 VISION_MODEL = "gemini-2.5-flash-preview-04-17"
 DEFAULT_IMAGE_GEN_MODEL_ID = "stabilityai/stable-diffusion-3-medium-diffusers"
 
+
 @dataclass
 class BotConfig:
     token: str
+
 
 @dataclass
 class GeminiConfig:
     api_key: str
     default_temperature: float = DEFAULT_GEMINI_TEMPERATURE
     default_max_tokens: int = DEFAULT_GEMINI_MAX_TOKENS
-    allowed_temperatures: Dict[str, float] = field(default_factory=lambda: ALLOWED_TEMPERATURES)
-    allowed_max_tokens: Dict[str, int] = field(default_factory=lambda: ALLOWED_MAX_TOKENS)
+    allowed_temperatures: Dict[str, float] = field(
+        default_factory=lambda: ALLOWED_TEMPERATURES
+    )
+    allowed_max_tokens: Dict[str, int] = field(
+        default_factory=lambda: ALLOWED_MAX_TOKENS
+    )
+
 
 @dataclass
 class MongoConfig:
     uri: str
     db_name: str
 
+
 @dataclass
 class HuggingFaceConfig:
     api_token: str
     image_gen_model_id: str
+
 
 @dataclass
 class Config:
@@ -53,7 +62,8 @@ class Config:
     gemini: GeminiConfig
     mongo: MongoConfig
     hf: HuggingFaceConfig
-    
+
+
 def load_config(path: str | None = ".env") -> Config | None:
     """
     Loads configuration from environment variables or a .env file.
@@ -67,7 +77,7 @@ def load_config(path: str | None = ".env") -> Config | None:
     mongo_db = os.getenv("MONGO_DB_NAME")
     hf_token = os.getenv("HUGGINGFACE_API_TOKEN")
     img_model = os.getenv("IMAGE_GEN_MODEL_ID", DEFAULT_IMAGE_GEN_MODEL_ID)
-    
+
     if not all([bot_token, gemini_key, mongo_uri, mongo_db, hf_token]):
         print("Error: Not all required environment variables are set.")
         return None
@@ -76,9 +86,10 @@ def load_config(path: str | None = ".env") -> Config | None:
         bot=BotConfig(token=bot_token),
         gemini=GeminiConfig(api_key=gemini_key),
         mongo=MongoConfig(uri=mongo_uri, db_name=mongo_db),
-        hf=HuggingFaceConfig(api_token=hf_token, image_gen_model_id=img_model)
+        hf=HuggingFaceConfig(api_token=hf_token, image_gen_model_id=img_model),
     )
-    
+
+
 config = load_config()
 if not config:
     print("Fatal error: Cannot load config. Check .env file and environment variables.")

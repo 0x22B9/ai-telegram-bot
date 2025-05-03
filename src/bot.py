@@ -6,19 +6,25 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.mongo import MongoStorage
 
 from src.config import config
-from src.middlewares import LanguageMiddleware
-from src.db import connect_db, close_db
+from src.db import close_db, connect_db
 from src.handlers import (
-    common_router, text_router, image_router,
-    settings_router, image_generation_router, audio_router,
-    document_router, privacy_router
+    audio_router,
+    common_router,
+    document_router,
+    image_generation_router,
+    image_router,
+    privacy_router,
+    settings_router,
+    text_router,
 )
+from src.middlewares import LanguageMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
 
 async def on_startup(dispatcher: Dispatcher, bot: Bot):
     """Actions when the bot starts up."""
@@ -29,6 +35,7 @@ async def on_startup(dispatcher: Dispatcher, bot: Bot):
     await bot.delete_webhook(drop_pending_updates=True)
     logger.info("Webhook deleted. Bot started.")
 
+
 async def on_shutdown(dispatcher: Dispatcher):
     """Actions when the bot stops."""
     logger.info("Bot stopping...")
@@ -36,15 +43,13 @@ async def on_shutdown(dispatcher: Dispatcher):
     await dispatcher.storage.close()
     logger.info("FSM Storage closed. Bot stopped.")
 
+
 async def main():
     if not config:
         logger.critical("Bot can't start. No config found.")
         return
 
-    bot = Bot(
-        token=config.bot.token,
-        default=DefaultBotProperties(parse_mode="HTML")
-    )
+    bot = Bot(token=config.bot.token, default=DefaultBotProperties(parse_mode="HTML"))
 
     try:
         storage = MongoStorage.from_url(url=config.mongo.uri)
@@ -77,7 +82,8 @@ async def main():
     except Exception as e:
         logger.critical(f"Critical error while polling: {e}", exc_info=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
